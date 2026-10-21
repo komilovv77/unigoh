@@ -9,7 +9,96 @@ import ApplicationTracker from './components/ApplicationTracker';
 import UniversityCRM from './components/UniversityCRM';
 import MasterAdmin from './components/MasterAdmin';
 import AIChatbot from './components/AIChatbot';
-import { GraduationCap, ShieldCheck, Heart, Sparkles, Check } from 'lucide-react';
+import { GraduationCap, ShieldCheck, Heart, Sparkles, Check, Lock, X, KeyRound } from 'lucide-react';
+
+function AdminAuthModal() {
+  const { isAdminAuthModalOpen, setIsAdminAuthModalOpen, verifyAdminPin } = useApp();
+  const [pin, setPin] = useState('');
+
+  if (!isAdminAuthModalOpen) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (verifyAdminPin(pin)) {
+      setPin('');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl max-w-sm w-full p-6 text-center space-y-5 shadow-2xl relative border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+        
+        <button
+          onClick={() => {
+            setIsAdminAuthModalOpen(false);
+            setPin('');
+          }}
+          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 font-bold"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 mx-auto flex items-center justify-center shadow-inner">
+          <Lock className="w-6 h-6" />
+        </div>
+
+        <div>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full">
+            Himoyalangan Hudud
+          </span>
+          <h3 className="text-lg font-bold text-slate-900 mt-2">Ma'muriy Kirish (RBAC)</h3>
+          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+            Bu bo'lim faqat <strong>UniGoh Asoschisi (@komilovv77)</strong> va OTM Qabul komissiyasi ma'murlari uchun.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+          <div>
+            <label className="block text-slate-600 font-semibold mb-1.5 text-left">
+              Xavfsizlik PIN kodi:
+            </label>
+            <div className="relative">
+              <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              <input
+                type="password"
+                maxLength={6}
+                placeholder="PIN kodni kiriting (demo: 7777)"
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+                autoFocus
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-center text-sm font-mono tracking-widest text-slate-900"
+              />
+            </div>
+          </div>
+
+          <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-[11px] text-slate-500 text-left">
+            💡 <strong>Eslatma</strong>: Haqiqiy serverda bu qism Supabase Row Level Security (RLS) va maxsus xodimlar hisobi orqali avtorizatsiya qilinadi.
+          </div>
+
+          <div className="flex space-x-2 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                setIsAdminAuthModalOpen(false);
+                setPin('');
+              }}
+              className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-semibold text-xs"
+            >
+              Bekor qilish
+            </button>
+            <button
+              type="submit"
+              className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md transition-colors"
+            >
+              Tasdiqlash
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  );
+}
 
 function MainLayout() {
   const { currentTab, notification } = useApp();
@@ -61,6 +150,7 @@ function MainLayout() {
 
       {/* Modals & Floating Assistants */}
       <UniversityDetailModal />
+      <AdminAuthModal />
       <AIChatbot />
 
       {/* Footer */}

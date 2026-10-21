@@ -6,14 +6,14 @@ import {
   Send, 
   Sparkles, 
   User, 
-  CornerDownLeft,
-  GraduationCap
+  GraduationCap,
+  ShieldAlert
 } from 'lucide-react';
 
 const INITIAL_MESSAGES = [
   {
     sender: 'bot',
-    text: "Assalomu alaykum! Men UniGoh sun'iy intellekt maslahatchisiman. Farg'ona vodiysi va Toshkentdagi nodavlat universitetlar, grantlar, kontrakt narxlari va ariza topshirish bo'yicha qanday yordam bera olaman?",
+    text: "Assalomu alaykum! Men UniGoh sun'iy intellekt maslahatchisiman. Men faqat O'zbekistondagi nodavlat universitetlar, grantlar, kontrakt narxlari, CEFR/IELTS talablari va ariza topshirish bo'yicha barcha savollaringizga yordam beraman.",
     time: "Hozir"
   }
 ];
@@ -21,8 +21,23 @@ const INITIAL_MESSAGES = [
 const QUICK_PROMPTS = [
   "Andijonda qaysi nodavlat OTMlar bor?",
   "Qaysi OTMda 100% grant yutish mumkin?",
-  "JSHSHIR nima va nima uchun kerak?",
+  "CEFR yoki IELTS qanday imtiyoz beradi?",
+  "DTM bali bilan qabul qiladimi?",
   "Kontrakt narxlari qancha?"
+];
+
+// Strict domain keywords for university education only
+const DOMAIN_KEYWORDS = [
+  "univer", "otm", "institut", "kollej", "maktab", "bakalavr", "magistr", "sirtqi", "kunduzgi", "kechki",
+  "grant", "kontrakt", "to'lov", "tolov", "narx", "fakultet", "yo'nalish", "yonalish", "mutaxassislik",
+  "andijon", "farg'ona", "fargona", "namangan", "toshkent", "qo'qon", "qoqon", "samarqand", "vodiy",
+  "isft", "aipi", "emu", "nordic", "team", "webster", "inha", "akfa",
+  "cefr", "ielts", "toefl", "duolingo", "topik", "sat", "sertifikat", "til", "ingliz",
+  "dtm", "imtihon", "test", "bali", "ball", "suhbat",
+  "jshshir", "pinfl", "pasport", "attestat", "hujjat", "diplom",
+  "ariza", "topshirish", "vaucher", "qr", "unigoh", "qabul", "komissiya",
+  "stipendiya", "talaba", "abituriyent", "yotoqxona", "litsenziya", "akkreditatsiya",
+  "salom", "assalomu", "qalesiz", "yordam", "rahmat", "ishlash"
 ];
 
 export default function AIChatbot() {
@@ -54,21 +69,32 @@ export default function AIChatbot() {
     if (!textToSend) setInput('');
     setIsTyping(true);
 
-    // AI Response generation in Uzbek
+    // AI Response generation with strict guardrail
     setTimeout(() => {
-      let reply = "Savolingiz uchun rahmat! ";
       const q = query.toLowerCase();
 
-      if (q.includes("andijon") || q.includes("vodiy")) {
-        reply = "Andijon viloyatida hozirgi kunda ISFT Institute (Andijon filiali), Andijon Iqtisodiyot va Pedagogika Instituti (AIPI) hamda European Medical University (EMU) faoliyat yuritmoqda. Shuningdek, Farg'ona viloyatida Qo'qon Universiteti mavjud. Barcha ushbu OTMlar Oliy ta'lim vazirligi tomonidan rasmiy litsenziyalangan.";
+      // Check if question is within UniGoh & University domain
+      const isDomainRelated = DOMAIN_KEYWORDS.some(kw => q.includes(kw));
+
+      let reply = "";
+
+      if (!isDomainRelated) {
+        // Strict guardrail fallback
+        reply = "Kechirasiz, men faqat **UniGoh** platformasi, O'zbekistondagi nodavlat universitetlar, grantlar, kontraktlar, yo'nalishlar, sertifikatlar (CEFR/IELTS) va ariza topshirish bo'yicha ma'lumot bera olaman. Universitetlar bo'yicha qanday savolingiz bor?";
+      } else if (q.includes("andijon") || q.includes("vodiy")) {
+        reply = "Andijon viloyatida hozirda ISFT Institute (Andijon filiali), Andijon Iqtisodiyot va Pedagogika Instituti (AIPI) hamda European Medical University (EMU) faoliyat yuritmoqda. Farg'onada esa Qo'qon Universiteti mavjud. Barcha ushbu OTMlar Oliy ta'lim vazirligi litsenziyasiga ega va diplomlari davlat namunasida tan olinadi.";
+      } else if (q.includes("cefr") || q.includes("ielts") || q.includes("sertifikat") || q.includes("til")) {
+        reply = "Ha! UniGoh tizimida barcha milliy CEFR (B1, B2, C1) hamda xalqaro sertifikatlar (IELTS 5.5+, TOEFL, Duolingo, TOPIK, SAT) to'liq qabul qilinadi. CEFR B2 yoki IELTS 5.5+ sertifikati bor talabalarga chet tili imtihonidan maksimal ball beriladi yoki 50-100% grant ajratiladi.";
+      } else if (q.includes("dtm") || q.includes("davlat test") || q.includes("ball")) {
+        reply = "Albatta! Bilimni Baholash Agentligi (DTM) testida to'plagan balingizni profilingizga kiritishingiz mumkin. Ko'plab nodavlat universitetlar (masalan, ISFT, Qo'qon Universiteti, AIPI) DTM balingiz asosida sizni to'g'ridan-to'g'ri qo'shimcha imtihonsiz qabul qiladi va grant taqdim etadi.";
       } else if (q.includes("grant") || q.includes("bepul")) {
-        reply = "UniGoh platformasidagi deyarli barcha hamkor OTMlarda 100% gacha rektor va ta'sischi grantlari mavjud! Masalan, ISFT Andijon filialida 150 ta, Qo'qon universitetida 120 ta grant o'rinlari ajratilgan. Grant yutish uchun attestat o'rtacha bali yuqori bo'lishi va ichki suhbat/testdan muvaffaqiyatli o'tish zarur.";
+        reply = "UniGoh hamkor OTMlarida 100% gacha rektor va ta'sischi grantlari mavjud! Masalan, ISFT Andijon filialida 150 ta, Qo'qon universitetida 120 ta grant o'rinlari ajratilgan. UniGoh orqali birinchi navbatda grant imtihoniga ro'yxatdan o'tasiz.";
+      } else if (q.includes("narx") || q.includes("kontrakt") || q.includes("to'lov") || q.includes("tolov")) {
+        reply = "Nodavlat OTMlarda o'rtacha yillik kontrakt to'lovlari yo'nalishga qarab 12.5 mln so'mdan (Pedagogika/Boshlang'ich ta'lim) 32.0 mln so'mgacha (Davolash ishi va Xalqaro biznes) bo'ladi. To'lovni semestr yoki 4 qismga bo'lib to'lash imkoniyati bor.";
       } else if (q.includes("jshshir") || q.includes("pinfl") || q.includes("pasport")) {
-        reply = "JSHSHIR (PINFL) — bu pasportingiz yoki ID kartangiz pastki qismidagi 14 xonali noyob shaxsiy raqam. UniGoh platformasi O'RQ-547 qonuniga muvofiq arizalarni avtomatlashtirish va shaxsingizni yagona tizimda tasdiqlash uchun ushbu raqamdan foydalanadi. Ma'lumotlaringiz AES-256 shifrlash orqali to'liq himoyalangan.";
-      } else if (q.includes("narx") || q.includes("kontrakt") || q.includes("to'lov")) {
-        reply = "Nodavlat OTMlarda o'rtacha yillik kontrakt to'lovlari yo'nalishga qarab 12.5 mln so'mdan (Pedagogika/Filologiya) 32.0 mln so'mgacha (Tibbiyot va Xalqaro biznes) bo'ladi. To'lovni 4 qismga bo'lib to'lash imkoniyati ham mavjud.";
+        reply = "JSHSHIR (PINFL) — pasportingiz yoki ID kartangiz pastki qismidagi 14 xonali noyob raqam. UniGoh platformasi O'zbekiston Qonunchiligiga (O'RQ-547) muvofiq arizangizni OTM qabul komissiyasiga xavfsiz va aniq yetkazish uchun ushbu raqamdan foydalanadi (AES-256 shifrlangan).";
       } else {
-        reply = "UniGoh orqali siz bir vaqtning o'zida bir nechta universitetga o'z profilingiz orqali 1 ta klik bilan ariza topshirishingiz mumkin. Arizangiz qabul qilingach, sizga rasmiy QR-kodli elektron Vaucher taqdim etiladi.";
+        reply = "UniGoh orqali siz bitta profil bilan bir vaqtning o'zida bir nechta universitetga 1 klikda ariza topshirishingiz mumkin. Arizangiz topshirilgach, rasmiy QR-kodli elektron Vaucher taqdim etiladi.";
       }
 
       setMessages(prev => [
@@ -80,7 +106,7 @@ export default function AIChatbot() {
         }
       ]);
       setIsTyping(false);
-    }, 1000);
+    }, 800);
   };
 
   return (
@@ -96,7 +122,7 @@ export default function AIChatbot() {
             <h3 className="text-sm font-bold leading-tight">UniGoh AI Maslahatchi</h3>
             <p className="text-[10px] text-indigo-200 flex items-center">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span>
-              24/7 Onlayn (O'zbek tilida)
+              Faqat Universitetlar bo'yicha maslahat
             </p>
           </div>
         </div>
@@ -162,7 +188,7 @@ export default function AIChatbot() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="Savolingizni yozing..."
+          placeholder="Universitet, grant, CEFR yoki kontrakt haqida so'rang..."
           className="flex-1 text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800"
         />
         <button

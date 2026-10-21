@@ -86,31 +86,33 @@ export default function Navbar() {
 
             <div className="h-5 w-px bg-slate-200 mx-2" />
 
-            {/* B2B CRM Role */}
+            {/* B2B CRM Role (Protected) */}
             <button
-              onClick={() => setCurrentTab('crm')}
+              onClick={() => requestAdminAccess('crm')}
               className={`px-3 py-2 rounded-lg text-xs font-medium uppercase tracking-wider transition-colors flex items-center space-x-1.5 ${
                 currentTab === 'crm'
                   ? 'bg-purple-100 text-purple-800 font-bold border border-purple-200'
                   : 'text-purple-700 bg-purple-50 hover:bg-purple-100'
               }`}
-              title="Universitetlar uchun qabul komissiyasi CRM paneli"
+              title="Faqat OTM Qabul komissiyasi uchun (PIN-kod bilan himoyalangan)"
             >
               <span>OTM CRM</span>
+              <span className="text-[10px]">🔒</span>
             </button>
 
-            {/* Master Admin Founder */}
+            {/* Master Admin Founder (Protected) */}
             <button
-              onClick={() => setCurrentTab('founder')}
+              onClick={() => requestAdminAccess('founder')}
               className={`px-3 py-2 rounded-lg text-xs font-medium uppercase tracking-wider transition-colors flex items-center space-x-1.5 ${
                 currentTab === 'founder'
                   ? 'bg-amber-100 text-amber-800 font-bold border border-amber-200'
                   : 'text-amber-700 bg-amber-50 hover:bg-amber-100'
               }`}
-              title="UniGoh Asoschisi va Audit paneli"
+              title="Faqat Platforma Asoschisi (komilovv77) uchun"
             >
               <ShieldAlert className="w-3.5 h-3.5" />
               <span>Master Admin</span>
+              <span className="text-[10px]">🔒</span>
             </button>
           </nav>
 
@@ -156,16 +158,16 @@ export default function Navbar() {
             Arizalar ({applications.length})
           </button>
           <button
-            onClick={() => setCurrentTab('crm')}
+            onClick={() => requestAdminAccess('crm')}
             className={`px-2.5 py-1.5 rounded-md whitespace-nowrap ${currentTab === 'crm' ? 'bg-purple-600 text-white font-semibold' : 'bg-purple-50 text-purple-700'}`}
           >
-            OTM CRM
+            OTM CRM 🔒
           </button>
           <button
-            onClick={() => setCurrentTab('founder')}
+            onClick={() => requestAdminAccess('founder')}
             className={`px-2.5 py-1.5 rounded-md whitespace-nowrap ${currentTab === 'founder' ? 'bg-amber-600 text-white font-semibold' : 'bg-amber-50 text-amber-700'}`}
           >
-            Master Admin
+            Master Admin 🔒
           </button>
         </div>
       </div>

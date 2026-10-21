@@ -13,6 +13,12 @@ export function AppProvider({ children }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [notification, setNotification] = useState(null);
 
+  // Security & Role-Based Access Control (RBAC)
+  // 'student' (default for public) | 'university_admin' | 'master_admin'
+  const [userRole, setUserRole] = useState('student');
+  const [isAdminAuthModalOpen, setIsAdminAuthModalOpen] = useState(false);
+  const [targetAdminTab, setTargetAdminTab] = useState(null);
+
   // Student Profile State (Abituriyent)
   const [studentProfile, setStudentProfile] = useState(() => {
     const saved = localStorage.getItem('unigoh_student_profile');
@@ -43,6 +49,36 @@ export function AppProvider({ children }) {
         isOcrVerified: true,
         ocrConfidence: "98.8%",
         extractedGpa: "4.8 / 5.0"
+      },
+      // Til va Xalqaro Sertifikatlar (CEFR, IELTS, TOEFL, Duolingo, TOPIK, SAT va b.)
+      certificates: [
+        {
+          id: "cert-1",
+          type: "CEFR (Milliy Sertifikat)",
+          level: "B2 (72 ball)",
+          issueDate: "2025-11-20",
+          certificateNumber: "UZ-CEFR-849102",
+          fileName: "cefr_b2_komilov.pdf",
+          isVerified: true
+        },
+        {
+          id: "cert-2",
+          type: "IELTS Academic",
+          level: "Band 6.5 (R: 7.0, L: 6.5, W: 6.0, S: 6.5)",
+          issueDate: "2026-02-15",
+          certificateNumber: "26UZ008412KOMA",
+          fileName: "ielts_6_5_komilov.pdf",
+          isVerified: true
+        }
+      ],
+      // Davlat Test Markazi (DTM) va OTM Natijalari
+      testScores: {
+        dtmExamScore: "142.8",
+        dtmMaxScore: "189.0",
+        dtmYear: "2026",
+        dtmSheetFile: "dtm_javoblar_varaqasi_2026.pdf",
+        internalUniScore: "92 ball (Imtihondan o'tgan)",
+        isVerified: true
       }
     };
   });
@@ -177,6 +213,59 @@ export function AppProvider({ children }) {
     notify("CSV fayli yuklab olindi!");
   };
 
+  // Certificate management
+  const addCertificate = (newCert) => {
+    const cert = {
+      id: `cert-${Date.now()}`,
+      ...newCert,
+      isVerified: true
+    };
+    setStudentProfile(prev => ({
+      ...prev,
+      certificates: [...(prev.certificates || []), cert]
+    }));
+    notify(`${newCert.type} sertifikati muvaffaqiyatli saqlandi!`);
+  };
+
+  const removeCertificate = (id) => {
+    setStudentProfile(prev => ({
+      ...prev,
+      certificates: (prev.certificates || []).filter(c => c.id !== id)
+    }));
+    notify("Sertifikat o'chirildi", "info");
+  };
+
+  const updateTestScores = (newScores) => {
+    setStudentProfile(prev => ({
+      ...prev,
+      testScores: { ...prev.testScores, ...newScores }
+    }));
+    notify("Imtihon natijalari muvaffaqiyatli saqlandi!");
+  };
+
+  // Admin access request (password protected)
+  const requestAdminAccess = (tab) => {
+    if (userRole === 'master_admin') {
+      setCurrentTab(tab);
+      return;
+    }
+    setTargetAdminTab(tab);
+    setIsAdminAuthModalOpen(true);
+  };
+
+  const verifyAdminPin = (enteredPin) => {
+    // Secret founder PIN code (for demo / founder login)
+    if (enteredPin === '7777') {
+      setUserRole(targetAdminTab === 'founder' ? 'master_admin' : 'university_admin');
+      setCurrentTab(targetAdminTab);
+      setIsAdminAuthModalOpen(false);
+      notify(targetAdminTab === 'founder' ? "Master Admin (Asoschi) sifatida kirdingiz!" : "OTM Qabul komissiyasi CRM sifatida kirdingiz!");
+      return true;
+    }
+    notify("PIN kod noto'g'ri! (Faqat tizim egasi va OTM ma'murlari uchun)", "error");
+    return false;
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -194,6 +283,15 @@ export function AppProvider({ children }) {
         setIsChatOpen,
         studentProfile,
         setStudentProfile,
+        addCertificate,
+        removeCertificate,
+        updateTestScores,
+        userRole,
+        setUserRole,
+        isAdminAuthModalOpen,
+        setIsAdminAuthModalOpen,
+        requestAdminAccess,
+        verifyAdminPin,
         applications,
         submitApplication,
         updateApplicationStatus,
