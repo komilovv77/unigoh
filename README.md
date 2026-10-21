@@ -13,14 +13,14 @@
 
 ## 📌 Loyiha Haqida (Overview)
 
-**UniGoh** (`unigoh.uz`) — O'zbekistondagi nodavlat (xususiy) oliy ta'lim muassasalariga kirish jarayonini soddalashtiruvchi markazlashgan ekotizim. AQSHdagi mashhur **"Common App"** tizimi modelida qurilgan ushbu platforma abituriyentlarga bir martalik profil yaratib, bir vaqtning o'zida bir nechta universitetga 1 klik bilan ariza topshirish, grantlarni taqqoslash va rasmiy raqamli vaucherga ega bo'lish imkonini beradi.
+**UniGoh** (`unigoh.uz`) — O'zbekistondagi nodavlat (xususiy) oliy ta'lim muassasalariga kirish jarayonini soddalashtiruvchi markazlashgan ekotizim, ushbu platforma abituriyentlarga bir martalik profil yaratib, bir vaqtning o'zida bir nechta universitetga 1 klik bilan ariza topshirish, grantlarni taqqoslash va rasmiy raqamli vaucherga ega bo'lish imkonini beradi.
 
 ---
 
 ## 🚀 Asosiy Modullar (Core Modules)
 
 ### 1. 🎓 Abituriyent Portali (Student Side)
-* **Yagona Profil (Common App)**: F.I.SH, JSHSHIR (14 xonali PINFL), telefon raqami va hudud ma'lumotlarini bir marta kiritish kifoya.
+* **Yagona Profil **: F.I.SH, JSHSHIR (14 xonali PINFL), telefon raqami va hudud ma'lumotlarini bir marta kiritish kifoya.
 * **Hujjatlar Sandig'i & AI/OCR**: Pasport/ID karta va Maktab attestatini yuklash hamda AI yordamida avtomatik tekshiruv (aniqlik darajasi 99.4%).
 * **Reyting va Taqqoslash**: QS Stars va milliy reyting, kontrakt narxlari (12.5 mln - 32 mln so'm), ta'lim tillari (UZ/RU/EN) va mavjud grantlar bo'yicha saralash.
 * **1-Klikda Ariza topshirish**: Istalgan OTM va yo'nalishni tanlab bir vaqtning o'zida ariza yuborish.
@@ -32,12 +32,6 @@
 * **Excel / CSV Eksport**: Qabul komissiyasi hisoboti uchun arizalarni bir zumda yuklab olish.
 * **Konversiya Ko'rsatkichlari**: Qabul qilinganlik ulushi va statistikalar.
 
-### 3. ⚡ Master Admin & Audit Moduli (Founder / Operator Side)
-* **OTMlar Boshqaruvi & Tariflar**:
-  * **Paket A (Standard)**: 3,000,000 UZS / oyiga
-  * **Paket B (Premium)**: 8,000,000 UZS / oyiga + VIP joylashtirish va komissiya
-* **Revenue Dashboard**: Oylik obuna tushumi (MRR) va muvaffaqiyatli talabalar uchun komissiya tushumlari tahlili.
-* **Audit Call Moduli (Anti-Bypass Protection)**: Universitetlar tomonidan "To'lamadi / Rad etildi" deb belgilangan talabalarni tekshirib, OTM platformani chetlab o'tishining oldini oluvchi nazorat moduli.
 
 ### 4. 🤖 24/7 AI Maslahatchi (Uzbek Language)
 * O'zbek tilidagi sun'iy intellekt yordamchisi.
