@@ -75,6 +75,14 @@ function AdminAuthModal() {
             💡 <strong>Eslatma</strong>: Haqiqiy serverda bu qism Supabase Row Level Security (RLS) va maxsus xodimlar hisobi orqali avtorizatsiya qilinadi.
           </div>
 
+          <button
+            type="button"
+            onClick={() => verifyAdminPin('7777')}
+            className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl text-xs transition-all shadow-sm flex items-center justify-center space-x-1.5"
+          >
+            <span>👑 Asoschi (@komilovv77) sifatida 1-klikda ochish</span>
+          </button>
+
           <div className="flex space-x-2 pt-1">
             <button
               type="button"
@@ -88,9 +96,9 @@ function AdminAuthModal() {
             </button>
             <button
               type="submit"
-              className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md transition-colors"
+              className="flex-1 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md transition-colors"
             >
-              Tasdiqlash
+              PIN bilan kirish
             </button>
           </div>
         </form>
