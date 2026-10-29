@@ -6,10 +6,13 @@ import DocumentVault from './components/DocumentVault';
 import ApplicationTracker from './components/ApplicationTracker';
 import AIChatbot from './components/AIChatbot';
 import AdminPortal from './components/AdminPortal';
+import { AppProvider } from './context/AppContext';
 
-export default function App() {
+function MainApp() {
   const [currentTab, setCurrentTab] = useState('catalog');
   const [showAdminPortal, setShowAdminPortal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRegion, setSelectedRegion] = useState('');
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -37,7 +40,12 @@ export default function App() {
       <Navbar />
       
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        <Hero />
+        <Hero 
+          searchQuery={searchQuery} 
+          setSearchQuery={setSearchQuery}
+          selectedRegion={selectedRegion}
+          setSelectedRegion={setSelectedRegion}
+        />
 
         {/* Tab Navigation */}
         <div className="flex border-b border-slate-200 space-x-8">
@@ -74,12 +82,20 @@ export default function App() {
         </div>
 
         {/* Tab Contents */}
-        {currentTab === 'catalog' && <UniversityCatalog />}
+        {currentTab === 'catalog' && <UniversityCatalog searchQuery={searchQuery} selectedRegion={selectedRegion} />}
         {currentTab === 'profile' && <DocumentVault />}
         {currentTab === 'applications' && <ApplicationTracker />}
       </main>
 
       <AIChatbot />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AppProvider>
+      <MainApp />
+    </AppProvider>
   );
 }
