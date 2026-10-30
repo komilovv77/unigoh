@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import Greeting, { firstName } from './Greeting';
-import { User, GraduationCap, ClipboardCheck, Award, Briefcase, Plus, Trash2, Check } from 'lucide-react';
+import { User, GraduationCap, ClipboardCheck, Award, Briefcase, Plus, Trash2, Check, FolderLock } from 'lucide-react';
+import Documents from './Documents';
 
 export default function Profile({ session }) {
   const [loading, setLoading] = useState(true);
@@ -21,6 +22,8 @@ export default function Profile({ session }) {
 
   const [certificates, setCertificates] = useState([]);
   const [savedName, setSavedName] = useState('');
+  const [documents, setDocuments] = useState([]);
+  const [profileExists, setProfileExists] = useState(false);
 
   useEffect(() => {
     if (session) getProfile();
@@ -33,7 +36,7 @@ export default function Profile({ session }) {
 
       let { data, error, status } = await supabase
         .from('profiles')
-        .select(`full_name, phone, region, bio, school_name, diploma_url, test_score, certificates, portfolio_url`)
+        .select(`full_name, phone, region, bio, school_name, diploma_url, test_score, certificates, portfolio_url, documents`)
         .eq('id', user.id)
         .single();
 
@@ -54,6 +57,8 @@ export default function Profile({ session }) {
         });
         setCertificates(data.certificates || []);
         setSavedName(data.full_name || '');
+        setDocuments(Array.isArray(data.documents) ? data.documents : []);
+        setProfileExists(true);
       }
     } catch (error) {
       console.error('Profilni yuklashda xato:', error.message);
@@ -106,6 +111,7 @@ export default function Profile({ session }) {
 
       if (error) throw error;
       setSavedName(formData.full_name);
+      setProfileExists(true);
       setMessage("Ma'lumotlar va hujjatlar muvaffaqiyatli saqlandi!");
     } catch (error) {
       setMessage('Xatolik yuz berdi: ' + error.message);
@@ -114,13 +120,21 @@ export default function Profile({ session }) {
     }
   }
 
+  async function saveDocuments(next) {
+    const { error } = await supabase.from('profiles').update({ documents: next }).eq('id', session.user.id);
+    if (error) { setMessage('Xatolik yuz berdi: ' + error.message); return false; }
+    setDocuments(next);
+    return true;
+  }
+
   const progressChecks = [
     formData.full_name,
     formData.phone,
     formData.region,
     formData.bio,
     formData.school_name,
-    formData.diploma_url,
+    formData.diploma_url || documents.some((d) => d.kind === 'diploma'),
+    documents.some((d) => d.kind === 'passport'),
     formData.test_score,
     certificates.length > 0,
   ];
@@ -201,13 +215,22 @@ export default function Profile({ session }) {
             <input type="text" name="school_name" value={formData.school_name} onChange={handleChange} placeholder="masalan: Andijon shahar 21-maktab" required className={inputCls} />
           </div>
           <div>
-            <label className={labelCls}>Shahodatnoma / attestat fayli havolasi</label>
+            <label className={labelCls}>Shahodatnoma havolasi (ixtiyoriy, fayl yuklasangiz shart emas)</label>
             <input type="url" name="diploma_url" value={formData.diploma_url} onChange={handleChange} placeholder="https://drive.google.com/..." className={inputCls} />
           </div>
         </Section>
 
+        {/* HUJJATLAR */}
+        <Section n={3} icon={FolderLock} title="Hujjatlar" required>
+          {profileExists ? (
+            <Documents userId={session.user.id} documents={documents} onChange={saveDocuments} />
+          ) : (
+            <p className="text-base text-slate-600">Hujjat yuklash uchun avval yuqoridagi ma'lumotlarni to'ldirib, pastdagi "Saqlash" tugmasini bosing.</p>
+          )}
+        </Section>
+
         {/* 3. IMTIHON */}
-        <Section n={3} icon={ClipboardCheck} title="Imtihon ballari">
+        <Section n={4} icon={ClipboardCheck} title="Imtihon ballari">
           <div className="max-w-xs">
             <label className={labelCls}>DTM / kirish imtihoni bali</label>
             <input type="number" step="0.1" name="test_score" value={formData.test_score} onChange={handleChange} placeholder="masalan: 145.8" className={inputCls} />
@@ -216,7 +239,7 @@ export default function Profile({ session }) {
 
         {/* 4. SERTIFIKATLAR */}
         <Section
-          n={4}
+          n={5}
           icon={Award}
           title="Sertifikatlar"
           action={
@@ -257,7 +280,7 @@ export default function Profile({ session }) {
         </Section>
 
         {/* 5. PORTFOLIO */}
-        <Section n={5} icon={Briefcase} title="Portfolio va yutuqlar">
+        <Section n={6} icon={Briefcase} title="Portfolio va yutuqlar">
           <div>
             <label className={labelCls}>Portfolio, GitHub yoki loyihalaringiz havolasi</label>
             <input type="url" name="portfolio_url" value={formData.portfolio_url} onChange={handleChange} placeholder="https://..." className={inputCls} />
