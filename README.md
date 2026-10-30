@@ -25,6 +25,7 @@ Sxema `supabase/migrations/` papkasida, ishga tushirish tartibi fayl nomlari bo'
 4. `20261030_c_performance.sql` — RLS qoidalarini tezlashtirish, indekslar
 5. `20261030_d_lockdown.sql` — qoidalar faqat tizimga kirganlarga, funksiyalarga kirishni cheklash
 6. `20261030_e_staff_mfa.sql` — xodimlar uchun ikki bosqichli kirish majburiy
+7. `20261030_f_documents.sql` — hujjatlar uchun yopiq fayl ombori
 
 Har bir fayl qayta ishga tushirilsa ham xavfsiz.
 
