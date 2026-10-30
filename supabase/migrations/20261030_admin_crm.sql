@@ -272,7 +272,11 @@ begin
   end if;
   select id into uid from auth.users where lower(email) = lower(trim(p_email));
   if uid is null then
-    raise exception 'Bu email bilan foydalanuvchi topilmadi. Avval admin panelda ro''yxatdan o''tsin.';
+    -- Hali ro'yxatdan o'tmagan: taklif saqlanadi, ro'yxatdan o'tishi bilan rol beriladi
+    insert into public.staff_invites (email, role, university_id)
+    values (lower(trim(p_email)), p_role, case when p_role = 'master' then null else p_university end)
+    on conflict (email) do update set role = excluded.role, university_id = excluded.university_id;
+    return;
   end if;
   insert into public.staff (user_id, role, university_id, full_name)
   values (uid, p_role, case when p_role = 'master' then null else p_university end,
@@ -388,3 +392,57 @@ grant select on public.application_flags to authenticated;
 grant execute on function public.assign_staff(text, text, text) to authenticated;
 grant execute on function public.remove_staff(uuid) to authenticated;
 grant execute on function public.list_staff() to authenticated;
+
+-- -----------------------------------------------------------------------------
+-- 10. XODIM TAKLIFLARI: email oldindan yoziladi. Odam ro'yxatdan o'tishi bilan
+--     (yoki allaqachon ro'yxatdan o'tgan bo'lsa — darhol) rol avtomatik beriladi.
+-- -----------------------------------------------------------------------------
+create table if not exists public.staff_invites (
+  email          text primary key,
+  role           text not null check (role in ('master', 'university_admin')),
+  university_id  text references public.universities(id) on delete cascade,
+  created_at     timestamptz not null default now(),
+  check (role = 'master' or university_id is not null)
+);
+alter table public.staff_invites enable row level security;
+drop policy if exists "invites_master" on public.staff_invites;
+create policy "invites_master" on public.staff_invites
+  for all using (public.is_master()) with check (public.is_master());
+
+create or replace function public.apply_staff_invite()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  inv public.staff_invites;
+begin
+  select * into inv from public.staff_invites where email = lower(new.email);
+  if found then
+    insert into public.staff (user_id, role, university_id, full_name)
+    values (new.id, inv.role, inv.university_id, new.raw_user_meta_data->>'full_name')
+    on conflict (user_id) do update set role = excluded.role, university_id = excluded.university_id;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_staff_invite on auth.users;
+create trigger on_auth_user_staff_invite
+  after insert on auth.users
+  for each row execute function public.apply_staff_invite();
+
+-- Taklif qo'shilganda, odam allaqachon ro'yxatdan o'tgan bo'lsa — darhol biriktirish
+create or replace function public.apply_invite_to_existing()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  new.email := lower(trim(new.email));
+  insert into public.staff (user_id, role, university_id, full_name)
+  select u.id, new.role, new.university_id, u.raw_user_meta_data->>'full_name'
+  from auth.users u where lower(u.email) = new.email
+  on conflict (user_id) do update set role = excluded.role, university_id = excluded.university_id;
+  return new;
+end;
+$$;
+
+drop trigger if exists staff_invites_apply on public.staff_invites;
+create trigger staff_invites_apply
+  before insert or update on public.staff_invites
+  for each row execute function public.apply_invite_to_existing();
