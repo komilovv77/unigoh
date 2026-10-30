@@ -31,7 +31,7 @@ const fallbackClient = {
   from: () => {
     const q = {
       select: () => q, insert: () => q, update: () => q, upsert: () => q, delete: () => q,
-      eq: () => q, single: () => q, maybeSingle: () => q, order: () => q,
+      eq: () => q, in: () => q, not: () => q, single: () => q, maybeSingle: () => q, order: () => q,
       then: (resolve) => resolve({ data: null, error: { message: "Supabase sozlanmagan" } }),
     }
     return q

@@ -145,7 +145,7 @@ export default function Profile({ session }) {
   }
 
   return (
-    <div className="max-w-3xl mx-auto my-6 sm:my-8 space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6">
       <Greeting name={displayName} progress={progress} />
 
       {message && (
