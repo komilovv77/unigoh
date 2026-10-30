@@ -2,9 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './lib/supabaseClient'
 import Navbar from './components/Navbar';
 import Profile from './components/Profile';
+import Landing from './components/Landing';
+import AuthModal from './components/AuthModal';
 
 export default function App() {
   const [session, setSession] = useState(null);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -20,24 +23,21 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  const openAuth = () => setIsAuthOpen(true);
+
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
-      <Navbar session={session} />
-      
-      <main className="container mx-auto px-4 py-6">
-        {session ? (
+    <div className="min-h-screen bg-cream text-slate-900">
+      <Navbar session={session} onLoginClick={openAuth} />
+
+      {session ? (
+        <main className="max-w-6xl mx-auto px-4 py-6">
           <Profile session={session} />
-        ) : (
-          <div className="max-w-xl mx-auto my-16 p-8 text-center bg-white rounded-2xl shadow-sm border border-gray-100">
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">
-              UniGoh Platformasiga Xush Kelibsiz!
-            </h1>
-            <p className="text-gray-500 mb-6 text-sm">
-              Universitetlarga ariza topshirish va shaxsiy kabinetingizni to'ldirish uchun tizimga kiring.
-            </p>
-          </div>
-        )}
-      </main>
+        </main>
+      ) : (
+        <Landing onStart={openAuth} />
+      )}
+
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </div>
   );
 }

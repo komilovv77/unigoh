@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import Greeting, { firstName } from './Greeting';
+import { User, GraduationCap, ClipboardCheck, Award, Briefcase, Plus, Trash2, Check } from 'lucide-react';
 
 export default function Profile({ session }) {
   const [loading, setLoading] = useState(true);
@@ -18,6 +20,7 @@ export default function Profile({ session }) {
   });
 
   const [certificates, setCertificates] = useState([]);
+  const [savedName, setSavedName] = useState('');
 
   useEffect(() => {
     if (session) getProfile();
@@ -50,6 +53,7 @@ export default function Profile({ session }) {
           portfolio_url: data.portfolio_url || '',
         });
         setCertificates(data.certificates || []);
+        setSavedName(data.full_name || '');
       }
     } catch (error) {
       console.error('Profilni yuklashda xato:', error.message);
@@ -101,6 +105,7 @@ export default function Profile({ session }) {
       let { error } = await supabase.from('profiles').upsert(updates);
 
       if (error) throw error;
+      setSavedName(formData.full_name);
       setMessage("Ma'lumotlar va hujjatlar muvaffaqiyatli saqlandi!");
     } catch (error) {
       setMessage('Xatolik yuz berdi: ' + error.message);
@@ -109,222 +114,189 @@ export default function Profile({ session }) {
     }
   }
 
+  const progressChecks = [
+    formData.full_name,
+    formData.phone,
+    formData.region,
+    formData.bio,
+    formData.school_name,
+    formData.diploma_url,
+    formData.test_score,
+    certificates.length > 0,
+  ];
+  const progress = Math.round((progressChecks.filter(Boolean).length / progressChecks.length) * 100);
+
+  const displayName = firstName(
+    savedName || session?.user?.user_metadata?.full_name,
+    session?.user?.email
+  );
+
+  const inputCls =
+    'w-full px-4 py-3 bg-white border-2 border-brand-100 rounded-xl text-base text-slate-900 placeholder-slate-400 outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100';
+  const labelCls = 'block text-sm font-semibold text-brand-900 mb-1.5';
+
   if (loading) {
-    return <div className="p-8 text-center text-gray-600 font-medium">Profil yuklanmoqda...</div>;
+    return (
+      <div className="max-w-3xl mx-auto my-8 space-y-6 animate-pulse" aria-label="Profil yuklanmoqda">
+        <div className="h-48 rounded-3xl bg-brand-100" />
+        <div className="h-64 rounded-3xl bg-white border border-brand-100" />
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-3xl mx-auto my-8 p-6 md:p-8 bg-white rounded-2xl shadow-sm border border-gray-100">
-      <h2 className="text-2xl font-bold mb-1 text-gray-800">Abituriyent Profili</h2>
-      <p className="text-sm text-gray-500 mb-6">
-        Universitetlarga ariza topshirish uchun profil va hujjatlaringizni to'ldiring.
-      </p>
+    <div className="max-w-3xl mx-auto my-6 sm:my-8 space-y-6">
+      <Greeting name={displayName} progress={progress} />
 
       {message && (
-        <div className={`p-4 mb-6 text-sm rounded-xl font-medium ${message.includes('Xatolik') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+        <div
+          role="status"
+          className={`flex items-center gap-2 p-4 text-base rounded-2xl font-medium ${
+            message.includes('Xatolik')
+              ? 'bg-red-50 text-red-700 border border-red-200'
+              : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+          }`}
+        >
+          {!message.includes('Xatolik') && <Check className="w-5 h-5 shrink-0" />}
           {message}
         </div>
       )}
 
-      <form onSubmit={updateProfile} className="space-y-8">
-        
+      <form onSubmit={updateProfile} className="space-y-6">
         {/* 1. SHAXSIY MA'LUMOTLAR */}
-        <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100 space-y-4">
-          <h3 className="text-lg font-semibold text-indigo-900 border-b pb-2">1. Shaxsiy Ma'lumotlar (Majburiy)</h3>
-          
+        <Section n={1} icon={User} title="Shaxsiy ma'lumotlar" required>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Email</label>
+              <label className={labelCls}>Email</label>
               <input
                 type="text"
                 value={session?.user?.email || ''}
                 disabled
-                className="w-full p-2.5 bg-gray-100 border border-gray-200 rounded-lg text-gray-500 text-sm cursor-not-allowed"
+                className="w-full px-4 py-3 bg-cream border-2 border-apricot-100 rounded-xl text-base text-slate-500 cursor-not-allowed"
               />
             </div>
-
             <div>
-              <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Ism va Familiya *</label>
-              <input
-                type="text"
-                name="full_name"
-                value={formData.full_name}
-                onChange={handleChange}
-                placeholder="masalan: Ali Valiyev"
-                required
-                className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-              />
+              <label className={labelCls}>Ism va familiya *</label>
+              <input type="text" name="full_name" value={formData.full_name} onChange={handleChange} placeholder="masalan: Ali Valiyev" required className={inputCls} />
             </div>
-
             <div>
-              <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Telefon raqam *</label>
-              <input
-                type="text"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="+998 90 123 45 67"
-                required
-                className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-              />
+              <label className={labelCls}>Telefon raqam *</label>
+              <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+998 90 123 45 67" required className={inputCls} />
             </div>
-
             <div>
-              <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Viloyat / Shahar *</label>
-              <input
-                type="text"
-                name="region"
-                value={formData.region}
-                onChange={handleChange}
-                placeholder="masalan: Toshkent sh."
-                required
-                className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-              />
+              <label className={labelCls}>Viloyat / shahar *</label>
+              <input type="text" name="region" value={formData.region} onChange={handleChange} placeholder="masalan: Andijon" required className={inputCls} />
             </div>
           </div>
-
           <div>
-            <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">O'zingiz haqida qisqacha (Bio)</label>
-            <textarea
-              name="bio"
-              rows="2"
-              value={formData.bio}
-              onChange={handleChange}
-              placeholder="Qiziqishlaringiz, maqsadlaringiz haqida qisqacha yozing..."
-              className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-            ></textarea>
+            <label className={labelCls}>O'zingiz haqingizda qisqacha</label>
+            <textarea name="bio" rows="3" value={formData.bio} onChange={handleChange} placeholder="Qiziqishlaringiz va maqsadlaringiz haqida bir-ikki gap..." className={inputCls} />
           </div>
-        </div>
+        </Section>
 
-        {/* 2. TA'LIM VA SHAHODATNOMA */}
-        <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100 space-y-4">
-          <h3 className="text-lg font-semibold text-indigo-900 border-b pb-2">2. Ta'lim va Shahodatnoma (Majburiy)</h3>
-          
+        {/* 2. TA'LIM */}
+        <Section n={2} icon={GraduationCap} title="Ta'lim va shahodatnoma" required>
           <div>
-            <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Maktab / Litsey / Kollej nomi *</label>
-            <input
-              type="text"
-              name="school_name"
-              value={formData.school_name}
-              onChange={handleChange}
-              placeholder="masalan: Toshkent shahar 21-maktab"
-              required
-              className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
+            <label className={labelCls}>Maktab / litsey / kollej nomi *</label>
+            <input type="text" name="school_name" value={formData.school_name} onChange={handleChange} placeholder="masalan: Andijon shahar 21-maktab" required className={inputCls} />
           </div>
+          <div>
+            <label className={labelCls}>Shahodatnoma / attestat fayli havolasi</label>
+            <input type="url" name="diploma_url" value={formData.diploma_url} onChange={handleChange} placeholder="https://drive.google.com/..." className={inputCls} />
+          </div>
+        </Section>
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Shahodatnoma / Attestat / Diplom fayl havolasi (URL)</label>
-            <input
-              type="url"
-              name="diploma_url"
-              value={formData.diploma_url}
-              onChange={handleChange}
-              placeholder="https://drive.google.com/... yoki fayl havolasi"
-              className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
+        {/* 3. IMTIHON */}
+        <Section n={3} icon={ClipboardCheck} title="Imtihon ballari">
+          <div className="max-w-xs">
+            <label className={labelCls}>DTM / kirish imtihoni bali</label>
+            <input type="number" step="0.1" name="test_score" value={formData.test_score} onChange={handleChange} placeholder="masalan: 145.8" className={inputCls} />
           </div>
-        </div>
-
-        {/* 3. DTM / OTM BALLI */}
-        <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100 space-y-4">
-          <h3 className="text-lg font-semibold text-indigo-900 border-b pb-2">3. Imtihon Ballari (Ixtiyoriy)</h3>
-          
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">DTM / OTM Kirish imtihoni bali</label>
-            <input
-              type="number"
-              step="0.1"
-              name="test_score"
-              value={formData.test_score}
-              onChange={handleChange}
-              placeholder="masalan: 145.8"
-              className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
-          </div>
-        </div>
+        </Section>
 
         {/* 4. SERTIFIKATLAR */}
-        <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100 space-y-4">
-          <div className="flex justify-between items-center border-b pb-2">
-            <h3 className="text-lg font-semibold text-indigo-900">4. Sertifikatlar (Til va Fanlar)</h3>
+        <Section
+          n={4}
+          icon={Award}
+          title="Sertifikatlar"
+          action={
             <button
               type="button"
               onClick={addCertificate}
-              className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-bold rounded-lg transition"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-apricot-100 hover:bg-apricot-200 text-apricot-800 text-sm font-semibold rounded-xl transition"
             >
-              + Sertifikat qo'shish
+              <Plus className="w-4 h-4" /> Qo'shish
             </button>
-          </div>
-
+          }
+        >
           {certificates.length === 0 ? (
-            <p className="text-xs text-gray-400 italic">Hozircha sertifikatlar qo'shilmadi. IELTS, CEFR yoki milliy sertifikatlaringiz bo'lsa qo'shing.</p>
+            <p className="text-base text-slate-500">
+              IELTS, CEFR yoki milliy sertifikatlaringiz bo'lsa, qo'shing — grant olish imkoniyatini oshiradi.
+            </p>
           ) : (
             certificates.map((cert, index) => (
-              <div key={index} className="p-3 bg-white border border-gray-200 rounded-lg space-y-2">
+              <div key={index} className="p-4 bg-cream border-2 border-apricot-100 rounded-2xl space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-gray-500">Sertifikat #{index + 1}</span>
+                  <span className="text-sm font-bold text-apricot-800">Sertifikat {index + 1}</span>
                   <button
                     type="button"
                     onClick={() => removeCertificate(index)}
-                    className="text-xs text-red-500 hover:underline"
+                    className="inline-flex items-center gap-1 text-sm text-red-600 hover:text-red-700 font-medium"
                   >
-                    O'chirish
+                    <Trash2 className="w-4 h-4" /> O'chirish
                   </button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  <input
-                    type="text"
-                    placeholder="Sertifikat nomi (masalan: IELTS, CEFR Matematika)"
-                    value={cert.title}
-                    onChange={(e) => handleCertChange(index, 'title', e.target.value)}
-                    className="p-2 border border-gray-300 rounded text-xs outline-none focus:border-indigo-500"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Ball (masalan: 7.0 yoki B2)"
-                    value={cert.score}
-                    onChange={(e) => handleCertChange(index, 'score', e.target.value)}
-                    className="p-2 border border-gray-300 rounded text-xs outline-none focus:border-indigo-500"
-                  />
-                  <input
-                    type="url"
-                    placeholder="Fayl havolasi (URL)"
-                    value={cert.file_url}
-                    onChange={(e) => handleCertChange(index, 'file_url', e.target.value)}
-                    className="p-2 border border-gray-300 rounded text-xs outline-none focus:border-indigo-500"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <input type="text" placeholder="Nomi (IELTS, CEFR...)" value={cert.title} onChange={(e) => handleCertChange(index, 'title', e.target.value)} className={inputCls} />
+                  <input type="text" placeholder="Ball (7.0 yoki B2)" value={cert.score} onChange={(e) => handleCertChange(index, 'score', e.target.value)} className={inputCls} />
+                  <input type="url" placeholder="Fayl havolasi" value={cert.file_url} onChange={(e) => handleCertChange(index, 'file_url', e.target.value)} className={inputCls} />
                 </div>
               </div>
             ))
           )}
-        </div>
+        </Section>
 
         {/* 5. PORTFOLIO */}
-        <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100 space-y-4">
-          <h3 className="text-lg font-semibold text-indigo-900 border-b pb-2">5. Portfolio va Yutuqlar (Ixtiyoriy)</h3>
-          
+        <Section n={5} icon={Briefcase} title="Portfolio va yutuqlar">
           <div>
-            <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Portfolio / Github / Shaxsiy loyihalar havolasi</label>
-            <input
-              type="url"
-              name="portfolio_url"
-              value={formData.portfolio_url}
-              onChange={handleChange}
-              placeholder="https://myportfolio.com yoki https://github.com/username"
-              className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
+            <label className={labelCls}>Portfolio, GitHub yoki loyihalaringiz havolasi</label>
+            <input type="url" name="portfolio_url" value={formData.portfolio_url} onChange={handleChange} placeholder="https://..." className={inputCls} />
           </div>
-        </div>
+        </Section>
 
-        <button
-          type="submit"
-          disabled={saving}
-          className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-sm transition duration-200 disabled:opacity-50"
-        >
-          {saving ? 'Saqlanmoqda...' : 'Barcha ma\'lumotlarni saqlash'}
-        </button>
+        <div className="sticky bottom-4 z-10">
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full py-4 bg-brand-800 hover:bg-brand-900 text-white text-lg font-semibold rounded-2xl shadow-lg shadow-brand-900/20 transition disabled:opacity-60"
+          >
+            {saving ? 'Saqlanmoqda...' : 'Saqlash'}
+          </button>
+        </div>
       </form>
     </div>
+  );
+}
+
+function Section({ n, icon: Icon, title, required, action, children }) {
+  return (
+    <section className="bg-white rounded-3xl border border-brand-100 p-5 sm:p-7 space-y-5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="relative flex items-center justify-center w-11 h-11 rounded-xl bg-brand-800 text-white shrink-0">
+            <Icon className="w-5 h-5" aria-hidden="true" />
+            <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center w-5 h-5 rounded-full bg-apricot-500 text-brand-950 text-xs font-bold">
+              {n}
+            </span>
+          </span>
+          <div>
+            <h3 className="text-xl font-bold text-brand-900">{title}</h3>
+            {required && <p className="text-sm text-apricot-700 font-medium">Majburiy</p>}
+          </div>
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
   );
 }

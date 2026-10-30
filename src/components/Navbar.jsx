@@ -1,44 +1,40 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { supabase } from '../lib/supabaseClient';
-import AuthModal from './AuthModal';
+import Logo from './Logo';
 
-export default function Navbar({ session }) {
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
-
+export default function Navbar({ session, onLoginClick }) {
   return (
-    <nav className="bg-white border-b border-gray-100 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <nav className="bg-white/90 backdrop-blur border-b border-brand-100 sticky top-0 z-50">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl font-black text-indigo-600 tracking-tight">UniGoh</span>
-          </div>
+          <a href="/" aria-label="UniGoh bosh sahifa">
+            <Logo />
+          </a>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {session ? (
-              <div className="flex items-center gap-3">
-                <span className="text-xs md:text-sm font-medium text-gray-700 bg-gray-100 px-3 py-1.5 rounded-lg">
+              <>
+                <span className="hidden sm:inline text-sm font-medium text-slate-700 bg-brand-50 px-3 py-1.5 rounded-lg">
                   {session.user.email}
                 </span>
                 <button
                   onClick={() => supabase.auth.signOut()}
-                  className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs md:text-sm font-semibold rounded-lg transition"
+                  className="px-3 py-2 text-sm font-semibold text-slate-600 hover:text-red-600 rounded-lg transition"
                 >
                   Chiqish
                 </button>
-              </div>
+              </>
             ) : (
               <button
-                onClick={() => setIsAuthOpen(true)}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow-sm transition"
+                onClick={onLoginClick}
+                className="px-5 py-2.5 bg-brand-800 hover:bg-brand-900 text-white text-sm sm:text-base font-semibold rounded-xl transition"
               >
-                Kirish / Ro'yxatdan o'tish
+                Kirish
               </button>
             )}
           </div>
         </div>
       </div>
-
-      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </nav>
   );
 }
