@@ -3,13 +3,14 @@ import { supabase } from './lib/supabaseClient'
 import Navbar from './components/Navbar';
 import Profile from './components/Profile';
 import Landing from './components/Landing';
-import AuthModal from './components/AuthModal';
+import AuthModal, { NewPasswordModal } from './components/AuthModal';
 import UniversityList from './components/UniversityList';
 import MyApplications from './components/MyApplications';
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [recovering, setRecovering] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -18,8 +19,9 @@ export default function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      if (event === 'PASSWORD_RECOVERY') setRecovering(true);
     });
 
     return () => subscription.unsubscribe();
@@ -38,6 +40,7 @@ export default function App() {
       )}
 
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+      {recovering && <NewPasswordModal onDone={() => setRecovering(false)} />}
     </div>
   );
 }
