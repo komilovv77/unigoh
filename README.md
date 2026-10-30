@@ -1,96 +1,43 @@
-# 🎓 UniGoh — Barcha Universitetlar Bir Joyda
+# UniGoh
 
-> **The "Common App" & EdTech Aggregator for Private Universities in Uzbekistan** (starting with Fergana Valley / Andijan region).
+O'zbekistondagi nodavlat universitetlarga yagona profil orqali ariza topshirish platformasi. Vodiydan boshlandi.
 
-[![React](https://img.shields.io/badge/React-18-blue.svg?logo=react)](https://react.dev/)
-[![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-3.4-38B2AC.svg?logo=tailwind-css)](https://tailwindcss.com/)
-[![Vite](https://img.shields.io/badge/Vite-6.0-646CFF.svg?logo=vite)](https://vitejs.dev/)
-[![Security](https://img.shields.io/badge/Security-AES--256%20%7C%20O'RQ--547-emerald.svg)](https://lex.uz)
-[![License](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
-[![Author](https://img.shields.io/badge/Author-komilovv77-indigo.svg)](https://github.com/komilovv77)
+- **Sayt:** https://unigoh.study
+- **Boshqaruv paneli:** alohida repo — [komilovv77/unigoh-admin](https://github.com/komilovv77/unigoh-admin)
 
----
+## Nima bor
 
-## 📌 Loyiha Haqida (Overview)
+- Bosh sahifa va talaba kabineti: profil, universitetlar va yo'nalishlar, ariza topshirish, ariza holatini kuzatish, "o'qishga kirdim" tasdig'i
+- Kirish, ro'yxatdan o'tish, parolni tiklash (Supabase Auth)
+- Barcha ma'lumotlar Supabase'da; kim nimani ko'rishi bazadagi RLS qoidalari bilan nazorat qilinadi
 
-**UniGoh** (`unigoh.uz`) — O'zbekistondagi nodavlat (xususiy) oliy ta'lim muassasalariga kirish jarayonini soddalashtiruvchi markazlashgan ekotizim, ushbu platforma abituriyentlarga bir martalik profil yaratib, bir vaqtning o'zida bir nechta universitetga 1 klik bilan ariza topshirish, grantlarni taqqoslash va rasmiy raqamli vaucherga ega bo'lish imkonini beradi.
+## Texnologiyalar
 
----
+React 18, Vite, Tailwind CSS, Supabase, Vercel.
 
-## 🚀 Asosiy Modullar (Core Modules)
+## Ma'lumotlar bazasi
 
-### 1. 🎓 Abituriyent Portali (Student Side)
-* **Yagona Profil **: F.I.SH, JSHSHIR (14 xonali PINFL), telefon raqami va hudud ma'lumotlarini bir marta kiritish kifoya.
-* **Hujjatlar Sandig'i & AI/OCR**: Pasport/ID karta va Maktab attestatini yuklash hamda AI yordamida avtomatik tekshiruv (aniqlik darajasi 99.4%).
-* **Reyting va Taqqoslash**: QS Stars va milliy reyting, kontrakt narxlari (12.5 mln - 32 mln so'm), ta'lim tillari (UZ/RU/EN) va mavjud grantlar bo'yicha saralash.
-* **1-Klikda Ariza topshirish**: Istalgan OTM va yo'nalishni tanlab bir vaqtning o'zida ariza yuborish.
-* **Raqamli Vaucher (QR-kod)**: Har bir arizaga noyob **Attribution ID** (masalan, `UNIGOH-2026-ISFT-0894`) va rasmiy QR-kod beriladi.
+Sxema `supabase/migrations/` papkasida, ishga tushirish tartibi fayl nomlari bo'yicha:
 
-### 2. 🏢 Universitet B2B CRM Paneli (University Admin)
-* **Lidlar Boshqaruvi**: UniGoh platformasi orqali kelib tushgan arizalar ro'yxati va holati.
-* **Status Switcher**: Talaba holatini o'zgartirish (*Kutilmoqda ➔ Hujjatlar ko'rilmoqda ➔ Qabul qilindi / Imtihon belgilandi ➔ Shartnoma to'landi*).
-* **Excel / CSV Eksport**: Qabul komissiyasi hisoboti uchun arizalarni bir zumda yuklab olish.
-* **Konversiya Ko'rsatkichlari**: Qabul qilinganlik ulushi va statistikalar.
+1. `20261030_admin_crm.sql` — universitetlar, xodimlar, arizalar, tarix, RLS
+2. `20261030_seed_universities.sql` — boshlang'ich universitetlar ro'yxati
+3. `20261030_b_private_finance.sql` — komissiya va ulush foizini faqat bosh administratorga yopish
+4. `20261030_c_performance.sql` — RLS qoidalarini tezlashtirish, indekslar
 
+Har bir fayl qayta ishga tushirilsa ham xavfsiz.
 
-### 4. 🤖 24/7 AI Maslahatchi (Uzbek Language)
-* O'zbek tilidagi sun'iy intellekt yordamchisi.
-* Vodiydagi OTMlar (ISFT Andijon, AIPI, Qo'qon Universiteti, EMU) va Toshkent universitetlari, grantlar hamda kontraktlar bo'yicha abituriyentlarga 24/7 yordam beradi.
+## Sozlash
 
----
+Vercel → Settings → Environment Variables (Production va Preview):
 
-## 🔒 Xavfsizlik va Qonuniylik (Security & Compliance)
-
-* **AES-256 Shifrlash**: Talabalarning barcha hujjatlari va identifikatsiya ma'lumotlari xavfsiz shifrlanadi.
-* **O'RQ-547 Qonuni**: O'zbekiston Respublikasining *"Shaxsiy ma'lumotlar to'g'risida"*gi Qonuniga to'liq muvofiq ishlab chiqilgan.
-* **JSHSHIR (PINFL)**: 14 xonali noyob raqam faqat ruxsat etilgan OTM qabul komissiyasiga xavfsiz kanallar orqali taqdim etiladi.
-
----
-
-## 🛠 Texnologiyalar (Tech Stack)
-
-* **Frontend**: React 18, Vite 6, Tailwind CSS 3.4
-* **Ikonkalar**: Lucide React
-* **QR Generator**: `qrcode.react` (SVG High Error Correction)
-* **Backend arxitekturasi**: Supabase (PostgreSQL, Row Level Security) / Node.js
-* **AI & OCR**: OpenAI GPT-4o-mini / Vision OCR Engine integratsiyasiga moslashtirilgan
-
----
-
-## 💻 Loyihani Ishga Tushirish (Getting Started)
-
-### 1. Repozitoriyni klonlash:
-```bash
-git clone https://github.com/komilovv77/unigoh.git
-cd unigoh
+```
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...   # faqat anon/publishable kalit, service_role HECH QACHON
 ```
 
-### 2. Bog'liqliklarni o'rnatish:
+Mahalliy ishga tushirish:
+
 ```bash
 npm install
-```
-
-### 3. Dasturni ishga tushirish (Local Dev Server):
-```bash
 npm run dev
 ```
-Dastur brauzerda ochiladi: `http://localhost:3000`
-
-### 4. Ishlab chiqarish (Production Build):
-```bash
-npm run build
-```
-
----
-
-## 👨‍💻 Muallif (Author)
-
-* **Loyiha Asoschisi**: [Abdulloh Komilov (@komilovv77)](https://github.com/komilovv77)
-* **Aloqa**: komilovabdulloh2023@gmail.com
-* **GitHub**: [github.com/komilovv77](https://github.com/komilovv77)
-
----
-
-## 📄 Litsenziya
-
-Ushbu loyiha [MIT Litsenziyasi](LICENSE) asosida tarqatiladi.
