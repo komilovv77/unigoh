@@ -23,6 +23,7 @@ Sxema `supabase/migrations/` papkasida, ishga tushirish tartibi fayl nomlari bo'
 2. `20261030_seed_universities.sql` — boshlang'ich universitetlar ro'yxati
 3. `20261030_b_private_finance.sql` — komissiya va ulush foizini faqat bosh administratorga yopish
 4. `20261030_c_performance.sql` — RLS qoidalarini tezlashtirish, indekslar
+5. `20261030_d_lockdown.sql` — qoidalar faqat tizimga kirganlarga, funksiyalarga kirishni cheklash
 
 Har bir fayl qayta ishga tushirilsa ham xavfsiz.
 
