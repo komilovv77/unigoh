@@ -4,6 +4,8 @@ import Navbar from './components/Navbar';
 import Profile from './components/Profile';
 import Landing from './components/Landing';
 import AuthModal from './components/AuthModal';
+import UniversityList from './components/UniversityList';
+import MyApplications from './components/MyApplications';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -30,14 +32,47 @@ export default function App() {
       <Navbar session={session} onLoginClick={openAuth} />
 
       {session ? (
-        <main className="max-w-6xl mx-auto px-4 py-6">
-          <Profile session={session} />
-        </main>
+        <StudentHome session={session} />
       ) : (
         <Landing onStart={openAuth} />
       )}
 
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </div>
+  );
+}
+
+const TABS = [
+  { id: 'profile', label: 'Profilim' },
+  { id: 'universities', label: 'Universitetlar' },
+  { id: 'applications', label: 'Arizalarim' },
+];
+
+function StudentHome({ session }) {
+  const [tab, setTab] = useState('profile');
+
+  return (
+    <main className="max-w-3xl mx-auto px-4 py-6">
+      <nav className="flex gap-1 p-1.5 bg-white border border-brand-100 rounded-2xl" aria-label="Kabinet bo'limlari">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            aria-current={tab === t.id ? 'page' : undefined}
+            className={`flex-1 px-3 py-2.5 rounded-xl text-sm sm:text-base font-semibold transition ${
+              tab === t.id ? 'bg-brand-800 text-white' : 'text-brand-800 hover:bg-brand-50'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </nav>
+
+      <div className="mt-6">
+        {tab === 'profile' && <Profile session={session} />}
+        {tab === 'universities' && <UniversityList session={session} />}
+        {tab === 'applications' && <MyApplications session={session} onBrowse={() => setTab('universities')} />}
+      </div>
+    </main>
   );
 }
