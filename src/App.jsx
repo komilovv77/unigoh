@@ -6,11 +6,19 @@ import Landing from './components/Landing';
 import AuthModal, { NewPasswordModal } from './components/AuthModal';
 import UniversityList from './components/UniversityList';
 import MyApplications from './components/MyApplications';
+import Privacy from './components/Privacy';
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [recovering, setRecovering] = useState(false);
+  const [hash, setHash] = useState(window.location.hash);
+
+  useEffect(() => {
+    const onHash = () => { setHash(window.location.hash); window.scrollTo(0, 0); };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -33,7 +41,9 @@ export default function App() {
     <div className="min-h-screen bg-cream text-slate-900">
       <Navbar session={session} onLoginClick={openAuth} />
 
-      {session ? (
+      {hash === '#maxfiylik' ? (
+        <Privacy />
+      ) : session ? (
         <StudentHome session={session} />
       ) : (
         <Landing onStart={openAuth} />

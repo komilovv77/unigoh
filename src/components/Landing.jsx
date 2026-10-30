@@ -108,7 +108,10 @@ export default function Landing({ onStart }) {
         <p className="text-base">
           <span className="font-semibold text-brand-800">Vodiydan boshlandi</span> — butun O'rta Osiyo yoshlari uchun.
         </p>
-        <p className="text-sm">© {new Date().getFullYear()} UniGoh</p>
+        <p className="text-sm flex gap-4">
+          <a href="#maxfiylik" className="hover:text-brand-800 underline-offset-2 hover:underline">Maxfiylik siyosati</a>
+          <span>© {new Date().getFullYear()} UniGoh</span>
+        </p>
       </footer>
     </div>
   );

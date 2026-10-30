@@ -22,6 +22,7 @@ export default function AuthModal({ isOpen, onClose }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
+  const [consent, setConsent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
@@ -40,7 +41,7 @@ export default function AuthModal({ isOpen, onClose }) {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: fullName }, emailRedirectTo: window.location.origin },
+        options: { data: { full_name: fullName, consent_at: new Date().toISOString(), consent_version: '2026-10-30' }, emailRedirectTo: window.location.origin },
       })
       if (error) setError(authError(error.message))
       else if (!data.session) setInfo("Emailingizga tasdiqlash xati yubordik. Xatdagi havolani bosing, so'ng kiring.")
@@ -100,10 +101,20 @@ export default function AuthModal({ isOpen, onClose }) {
             </div>
           )}
 
+          {mode === 'signup' && (
+            <label className="flex items-start gap-3 text-sm text-slate-700">
+              <input type="checkbox" required checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 w-5 h-5 accent-blue-800 shrink-0" />
+              <span>
+                <a href="#maxfiylik" target="_blank" rel="noopener" className="font-semibold text-brand-700 underline">Maxfiylik siyosati va foydalanish shartlari</a>ga
+                roziman va shaxsiy ma'lumotlarim ariza topshirish uchun qayta ishlanishiga rozilik beraman.
+              </span>
+            </label>
+          )}
+
           {error && <div role="alert" className="p-3.5 rounded-xl text-sm bg-red-50 text-red-700 border border-red-200">{error}</div>}
           {info && <div role="status" className="p-3.5 rounded-xl text-sm bg-emerald-50 text-emerald-800 border border-emerald-200">{info}</div>}
 
-          <button type="submit" disabled={loading}
+          <button type="submit" disabled={loading || (mode === 'signup' && !consent)}
             className="w-full py-3.5 bg-brand-800 hover:bg-brand-900 text-white text-base font-semibold rounded-xl transition disabled:opacity-60">
             {loading ? 'Kuting...' : buttons[mode]}
           </button>
