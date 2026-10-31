@@ -27,6 +27,7 @@ Sxema `supabase/migrations/` papkasida, ishga tushirish tartibi fayl nomlari bo'
 6. `20261030_e_staff_mfa.sql` — xodimlar uchun ikki bosqichli kirish majburiy
 7. `20261030_f_documents.sql` — hujjatlar uchun yopiq fayl ombori
 8. `20261031_g_agreements_notifications.sql` — talaba shartnomasi, universitetga yuborish, xabarlar, Telegram bot
+9. `20261031_h_offer_flow_sms.sql` — universitet qarori → talaba roziligi → yuborish; kontaktlarni yashirish; SMS navbati
 
 Har bir fayl qayta ishga tushirilsa ham xavfsiz.
 
