@@ -1,40 +1,40 @@
 import React, { useEffect, useState } from 'react';
 import { MapPin, Award, Check, Send } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { useLang, loc, programMeta } from '../i18n';
+import { AgreementModal } from './Agreement';
 
 const fmt = new Intl.NumberFormat('ru-RU');
-const money = (n) => (n ? `${fmt.format(n)} so'm` : '—');
 
-export default function UniversityList({ session, onApplied }) {
+export default function UniversityList({ session, agreement, onApplied }) {
+  const { t, lang } = useLang();
   const [unis, setUnis] = useState([]);
-  const [applied, setApplied] = useState({}); // "uniId:programId" -> true
-  const [profileOk, setProfileOk] = useState(true);
+  const [applied, setApplied] = useState({});
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState({ text: '', error: false });
+  const [pending, setPending] = useState(null); // imzodan keyin topshiriladigan ariza
 
   useEffect(() => {
     (async () => {
       setLoading(true);
       const [{ data: u, error }, { data: a }, { data: p }] = await Promise.all([
         supabase.from('universities').select('id, code, name, region, programs, details').eq('is_active', true).order('name'),
-        supabase.from('applications').select('university_id, program_id').eq('student_id', session.user.id),
+        supabase.from('applications').select('university_id, program_id, status').eq('student_id', session.user.id),
         supabase.from('profiles').select('full_name, phone, region, school_name').eq('id', session.user.id).maybeSingle(),
       ]);
-      if (error) setMessage('Xatolik: ' + error.message);
+      if (error) setMessage({ text: t('unis.error', { msg: error.message }), error: true });
       setUnis(u || []);
       setApplied(Object.fromEntries((a || []).map((x) => [`${x.university_id}:${x.program_id}`, true])));
-      setProfileOk(Boolean(p && p.full_name && p.phone && p.region && p.school_name));
+      setProfile(p || null);
       setLoading(false);
     })();
   }, [session.user.id]);
 
-  async function apply(uni, program) {
-    setMessage('');
-    if (!profileOk) {
-      setMessage("Xatolik: avval \"Profilim\" bo'limida majburiy maydonlarni to'ldirib saqlang.");
-      return;
-    }
+  const profileOk = Boolean(profile && profile.full_name && profile.phone && profile.region && profile.school_name);
+
+  async function submit(uni, program) {
     const key = `${uni.id}:${program.id}`;
     setBusy(key);
     const { error } = await supabase.from('applications').insert({
@@ -45,79 +45,98 @@ export default function UniversityList({ session, onApplied }) {
     });
     setBusy('');
     if (error) {
-      setMessage(error.code === '23505' ? 'Xatolik: bu yo\'nalishga allaqachon ariza topshirgansiz.' : 'Xatolik: ' + error.message);
+      if (error.message?.includes('AGREEMENT_REQUIRED')) { setPending({ uni, program }); return; }
+      setMessage({ text: error.code === '23505' ? t('unis.already') : t('unis.error', { msg: error.message }), error: true });
       return;
     }
-    setApplied({ ...applied, [key]: true });
-    setMessage(`Ariza yuborildi: ${uni.name} — ${program.name}`);
+    setApplied((s) => ({ ...s, [key]: true }));
+    setMessage({ text: t('unis.sent', { uni: uni.name, program: loc(program, 'name', lang) }), error: false });
     onApplied?.();
   }
 
-  if (loading) return <p className="text-center text-slate-500 py-10">Yuklanmoqda...</p>;
+  function apply(uni, program) {
+    setMessage({ text: '', error: false });
+    if (!profileOk) return setMessage({ text: t('unis.fillProfile'), error: true });
+    if (agreement.required) return setPending({ uni, program });
+    submit(uni, program);
+  }
+
+  if (loading) return <p className="text-center text-slate-500 py-10">{t('unis.loading')}</p>;
 
   return (
     <div className="space-y-5">
       {!profileOk && (
-        <div className="p-4 rounded-2xl bg-apricot-100 border border-apricot-300 text-apricot-900 text-base">
-          Ariza topshirishdan oldin <b>Profilim</b> bo'limida ism, telefon, viloyat va maktabingizni kiritib saqlang.
-        </div>
+        <div className="p-4 rounded-2xl bg-apricot-100 border border-apricot-300 text-apricot-900 text-base">{t('unis.fillProfile')}</div>
       )}
-      {message && (
-        <div role="status" className={`p-4 rounded-2xl text-base font-medium ${message.startsWith('Xatolik') ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
-          {message}
+      {message.text && (
+        <div role="status" className={`p-4 rounded-2xl text-base font-medium ${message.error ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
+          {message.text}
         </div>
       )}
 
-      {unis.length === 0 && <p className="text-center text-slate-500 py-10">Hozircha universitetlar qo'shilmagan.</p>}
+      {unis.length === 0 && <p className="text-center text-slate-500 py-10">{t('unis.empty')}</p>}
 
-      {unis.map((u) => (
-        <article key={u.id} className="bg-white rounded-3xl border border-brand-100 p-5 sm:p-7">
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-bold text-brand-900">{u.name}</h2>
-              <p className="mt-1 inline-flex items-center gap-1.5 text-slate-600">
-                <MapPin className="w-4 h-4" /> {u.region}
-              </p>
+      {unis.map((u) => {
+        const desc = loc(u.details, 'shortDescription', lang);
+        const grant = loc(u.details, 'grantOpportunity', lang);
+        return (
+          <article key={u.id} className="bg-white rounded-3xl border border-brand-100 p-5 sm:p-7">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-xl font-bold text-brand-900">{u.name}</h2>
+                <p className="mt-1 inline-flex items-center gap-1.5 text-slate-600"><MapPin className="w-4 h-4" /> {u.region}</p>
+              </div>
+              {grant && (
+                <span className="inline-flex items-center gap-1.5 self-start px-3 py-1.5 rounded-xl bg-apricot-100 text-apricot-800 text-sm font-semibold">
+                  <Award className="w-4 h-4 shrink-0" /> {grant}
+                </span>
+              )}
             </div>
-            {u.details?.grantOpportunity && (
-              <span className="inline-flex items-center gap-1.5 self-start px-3 py-1.5 rounded-xl bg-apricot-100 text-apricot-800 text-sm font-semibold">
-                <Award className="w-4 h-4" /> {u.details.grantOpportunity}
-              </span>
-            )}
-          </div>
-          {u.details?.shortDescription && <p className="mt-3 text-base text-slate-700">{u.details.shortDescription}</p>}
+            {desc && <p className="mt-3 text-base text-slate-700">{desc}</p>}
 
-          <ul className="mt-5 divide-y divide-brand-50 border-t border-brand-50">
-            {(u.programs || []).map((p) => {
-              const key = `${u.id}:${p.id}`;
-              const done = applied[key];
-              return (
-                <li key={p.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-slate-900">{p.name}</p>
-                    <p className="text-sm text-slate-500">
-                      {p.degree} · {p.duration} · {money(p.tuition)} / yil
-                    </p>
-                  </div>
-                  {done ? (
-                    <span className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-50 text-emerald-700 text-sm font-semibold">
-                      <Check className="w-4 h-4" /> Ariza yuborilgan
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => apply(u, p)}
-                      disabled={busy === key}
-                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-800 hover:bg-brand-900 text-white text-sm font-semibold rounded-xl transition disabled:opacity-60"
-                    >
-                      <Send className="w-4 h-4" /> {busy === key ? 'Yuborilmoqda...' : 'Ariza topshirish'}
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </article>
-      ))}
+            <ul className="mt-5 divide-y divide-brand-50 border-t border-brand-50">
+              {(u.programs || []).map((p) => {
+                const key = `${u.id}:${p.id}`;
+                return (
+                  <li key={p.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-900">{loc(p, 'name', lang)}</p>
+                      <p className="text-sm text-slate-500">
+                        {[...programMeta(p, lang), p.tuition ? `${fmt.format(p.tuition)} ${t('unis.sum')} / ${t('unis.perYear')}` : null].filter(Boolean).join(' · ')}
+                      </p>
+                    </div>
+                    {applied[key] ? (
+                      <span className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-50 text-emerald-700 text-sm font-semibold shrink-0">
+                        <Check className="w-4 h-4" /> {t('unis.applied')}
+                      </span>
+                    ) : (
+                      <button onClick={() => apply(u, p)} disabled={busy === key}
+                        className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-800 hover:bg-brand-900 text-white text-sm font-semibold rounded-xl transition disabled:opacity-60 shrink-0">
+                        <Send className="w-4 h-4" /> {busy === key ? t('unis.applying') : t('unis.apply')}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </article>
+        );
+      })}
+
+      {pending && agreement.template && (
+        <AgreementModal
+          template={agreement.template}
+          userId={session.user.id}
+          defaultName={profile?.full_name}
+          onClose={() => setPending(null)}
+          onSigned={async () => {
+            const { uni, program } = pending;
+            setPending(null);
+            await agreement.reload();
+            submit(uni, program);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,323 +1,245 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import Greeting, { firstName } from './Greeting';
-import { User, GraduationCap, ClipboardCheck, Award, Briefcase, Plus, Trash2, Check, FolderLock } from 'lucide-react';
-import Documents from './Documents';
+import { User, GraduationCap, ClipboardCheck, Award, Briefcase, Check, FolderLock, Send, Trash2, ExternalLink } from 'lucide-react';
+import { DocKind } from './Documents';
+import TelegramConnect from './TelegramConnect';
+import { useLang } from '../i18n';
+
+const EMPTY = { full_name: '', phone: '', region: '', bio: '', school_name: '', test_score: '' };
 
 export default function Profile({ session }) {
+  const { t, lang } = useLang();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
-
-  const [formData, setFormData] = useState({
-    full_name: '',
-    phone: '',
-    region: '',
-    bio: '',
-    school_name: '',
-    diploma_url: '',
-    test_score: '',
-    portfolio_url: '',
-  });
-
-  const [certificates, setCertificates] = useState([]);
-  const [savedName, setSavedName] = useState('');
+  const [message, setMessage] = useState({ text: '', error: false });
+  const [formData, setFormData] = useState(EMPTY);
+  const [legacyCerts, setLegacyCerts] = useState([]);
   const [documents, setDocuments] = useState([]);
+  const [savedName, setSavedName] = useState('');
   const [profileExists, setProfileExists] = useState(false);
+  const [telegram, setTelegram] = useState(null);
+  const [cert, setCert] = useState({ title: '', score: '' });
 
   useEffect(() => {
     if (session) getProfile();
   }, [session]);
 
   async function getProfile() {
-    try {
-      setLoading(true);
-      const { user } = session;
-
-      let { data, error, status } = await supabase
-        .from('profiles')
-        .select(`full_name, phone, region, bio, school_name, diploma_url, test_score, certificates, portfolio_url, documents`)
-        .eq('id', user.id)
-        .single();
-
-      if (error && status !== 406) {
-        throw error;
-      }
-
-      if (data) {
-        setFormData({
-          full_name: data.full_name || '',
-          phone: data.phone || '',
-          region: data.region || '',
-          bio: data.bio || '',
-          school_name: data.school_name || '',
-          diploma_url: data.diploma_url || '',
-          test_score: data.test_score || '',
-          portfolio_url: data.portfolio_url || '',
-        });
-        setCertificates(data.certificates || []);
-        setSavedName(data.full_name || '');
-        setDocuments(Array.isArray(data.documents) ? data.documents : []);
-        setProfileExists(true);
-      }
-    } catch (error) {
-      console.error('Profilni yuklashda xato:', error.message);
-    } finally {
-      setLoading(false);
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('full_name, phone, region, bio, school_name, test_score, certificates, documents, telegram_chat_id')
+      .eq('id', session.user.id)
+      .maybeSingle();
+    if (error) console.error('Profilni yuklashda xato:', error.message);
+    if (data) {
+      setFormData({
+        full_name: data.full_name || '',
+        phone: data.phone || '',
+        region: data.region || '',
+        bio: data.bio || '',
+        school_name: data.school_name || '',
+        test_score: data.test_score ?? '',
+      });
+      setLegacyCerts(Array.isArray(data.certificates) ? data.certificates.filter((c) => c && (c.title || c.file_url)) : []);
+      setDocuments(Array.isArray(data.documents) ? data.documents : []);
+      setSavedName(data.full_name || '');
+      setTelegram(data.telegram_chat_id);
+      setProfileExists(true);
+    } else {
+      setFormData({ ...EMPTY, full_name: session.user.user_metadata?.full_name || '' });
     }
+    setLoading(false);
   }
 
-  const addCertificate = () => {
-    setCertificates([...certificates, { title: '', score: '', file_url: '' }]);
-  };
-
-  const removeCertificate = (index) => {
-    const updated = certificates.filter((_, i) => i !== index);
-    setCertificates(updated);
-  };
-
-  const handleCertChange = (index, field, value) => {
-    const updated = [...certificates];
-    updated[index][field] = value;
-    setCertificates(updated);
-  };
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   async function updateProfile(e) {
     e.preventDefault();
-    try {
-      setSaving(true);
-      setMessage('');
-      const { user } = session;
-
-      const updates = {
-        id: user.id,
-        full_name: formData.full_name,
-        phone: formData.phone,
-        region: formData.region,
-        bio: formData.bio,
-        school_name: formData.school_name,
-        diploma_url: formData.diploma_url,
-        test_score: formData.test_score ? parseFloat(formData.test_score) : null,
-        certificates: certificates,
-        portfolio_url: formData.portfolio_url,
-        updated_at: new Date(),
-      };
-
-      let { error } = await supabase.from('profiles').upsert(updates);
-
-      if (error) throw error;
-      setSavedName(formData.full_name);
-      setProfileExists(true);
-      setMessage("Ma'lumotlar va hujjatlar muvaffaqiyatli saqlandi!");
-    } catch (error) {
-      setMessage('Xatolik yuz berdi: ' + error.message);
-    } finally {
-      setSaving(false);
-    }
+    setSaving(true);
+    setMessage({ text: '', error: false });
+    const updates = {
+      id: session.user.id,
+      full_name: formData.full_name.trim(),
+      phone: formData.phone.trim(),
+      region: formData.region.trim(),
+      bio: formData.bio,
+      school_name: formData.school_name.trim(),
+      test_score: formData.test_score !== '' ? parseFloat(formData.test_score) : null,
+      certificates: legacyCerts,
+      lang,
+      updated_at: new Date(),
+    };
+    const { error } = await supabase.from('profiles').upsert(updates);
+    setSaving(false);
+    if (error) return setMessage({ text: t('profile.error', { msg: error.message }), error: true });
+    setSavedName(updates.full_name);
+    setProfileExists(true);
+    setMessage({ text: t('profile.saved'), error: false });
   }
 
   async function saveDocuments(next) {
     const { error } = await supabase.from('profiles').update({ documents: next }).eq('id', session.user.id);
-    if (error) { setMessage('Xatolik yuz berdi: ' + error.message); return false; }
+    if (error) { setMessage({ text: t('profile.error', { msg: error.message }), error: true }); return false; }
     setDocuments(next);
     return true;
   }
 
-  const progressChecks = [
-    formData.full_name,
-    formData.phone,
-    formData.region,
-    formData.bio,
-    formData.school_name,
-    formData.diploma_url || documents.some((d) => d.kind === 'diploma'),
-    documents.some((d) => d.kind === 'passport'),
-    formData.test_score,
-    certificates.length > 0,
-  ];
-  const progress = Math.round((progressChecks.filter(Boolean).length / progressChecks.length) * 100);
+  async function removeLegacy(i) {
+    const next = legacyCerts.filter((_, j) => j !== i);
+    const { error } = await supabase.from('profiles').update({ certificates: next }).eq('id', session.user.id);
+    if (!error) setLegacyCerts(next);
+  }
 
-  const displayName = firstName(
-    savedName || session?.user?.user_metadata?.full_name,
-    session?.user?.email
-  );
+  const has = (k) => documents.some((d) => d.kind === k);
+  const checks = [formData.full_name, formData.phone, formData.region, formData.school_name, formData.bio, formData.test_score !== '', has('passport'), has('diploma')];
+  const progress = Math.round((checks.filter(Boolean).length / checks.length) * 100);
+  const displayName = firstName(savedName || session?.user?.user_metadata?.full_name, session?.user?.email);
 
-  const inputCls =
-    'w-full px-4 py-3 bg-white border-2 border-brand-100 rounded-xl text-base text-slate-900 placeholder-slate-400 outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100';
+  const inputCls = 'w-full px-4 py-3 bg-white border-2 border-brand-100 rounded-xl text-base text-slate-900 placeholder-slate-400 outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100';
   const labelCls = 'block text-sm font-semibold text-brand-900 mb-1.5';
 
   if (loading) {
     return (
-      <div className="max-w-3xl mx-auto my-8 space-y-6 animate-pulse" aria-label="Profil yuklanmoqda">
+      <div className="space-y-6 animate-pulse" aria-label={t('profile.loading')}>
         <div className="h-48 rounded-3xl bg-brand-100" />
         <div className="h-64 rounded-3xl bg-white border border-brand-100" />
       </div>
     );
   }
 
+  const uid = session.user.id;
+  const locked = <p className="text-base text-slate-600">{t('profile.saveFirst')}</p>;
+
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="space-y-6">
       <Greeting name={displayName} progress={progress} />
 
-      {message && (
-        <div
-          role="status"
-          className={`flex items-center gap-2 p-4 text-base rounded-2xl font-medium ${
-            message.includes('Xatolik')
-              ? 'bg-red-50 text-red-700 border border-red-200'
-              : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-          }`}
-        >
-          {!message.includes('Xatolik') && <Check className="w-5 h-5 shrink-0" />}
-          {message}
+      {message.text && (
+        <div role="status" className={`flex items-center gap-2 p-4 text-base rounded-2xl font-medium ${message.error ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
+          {!message.error && <Check className="w-5 h-5 shrink-0" />}
+          {message.text}
         </div>
       )}
 
       <form onSubmit={updateProfile} className="space-y-6">
-        {/* 1. SHAXSIY MA'LUMOTLAR */}
-        <Section n={1} icon={User} title="Shaxsiy ma'lumotlar" required>
+        <Section n={1} icon={User} title={t('profile.s1')} required>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelCls}>Email</label>
-              <input
-                type="text"
-                value={session?.user?.email || ''}
-                disabled
-                className="w-full px-4 py-3 bg-cream border-2 border-apricot-100 rounded-xl text-base text-slate-500 cursor-not-allowed"
-              />
+              <label className={labelCls} htmlFor="p-email">{t('profile.email')}</label>
+              <input id="p-email" type="text" value={session?.user?.email || ''} disabled className="w-full px-4 py-3 bg-cream border-2 border-apricot-100 rounded-xl text-base text-slate-500 cursor-not-allowed" />
             </div>
             <div>
-              <label className={labelCls}>Ism va familiya *</label>
-              <input type="text" name="full_name" value={formData.full_name} onChange={handleChange} placeholder="masalan: Ali Valiyev" required className={inputCls} />
+              <label className={labelCls} htmlFor="p-name">{t('profile.fullName')}</label>
+              <input id="p-name" type="text" name="full_name" value={formData.full_name} onChange={handleChange} placeholder={t('profile.fullNamePh')} required className={inputCls} />
             </div>
             <div>
-              <label className={labelCls}>Telefon raqam *</label>
-              <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+998 90 123 45 67" required className={inputCls} />
+              <label className={labelCls} htmlFor="p-phone">{t('profile.phone')}</label>
+              <input id="p-phone" type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+998 90 123 45 67" required className={inputCls} />
             </div>
             <div>
-              <label className={labelCls}>Viloyat / shahar *</label>
-              <input type="text" name="region" value={formData.region} onChange={handleChange} placeholder="masalan: Andijon" required className={inputCls} />
+              <label className={labelCls} htmlFor="p-region">{t('profile.region')}</label>
+              <input id="p-region" type="text" name="region" value={formData.region} onChange={handleChange} placeholder={t('profile.regionPh')} required className={inputCls} />
             </div>
           </div>
           <div>
-            <label className={labelCls}>O'zingiz haqingizda qisqacha</label>
-            <textarea name="bio" rows="3" value={formData.bio} onChange={handleChange} placeholder="Qiziqishlaringiz va maqsadlaringiz haqida bir-ikki gap..." className={inputCls} />
+            <label className={labelCls} htmlFor="p-bio">{t('profile.bio')}</label>
+            <textarea id="p-bio" name="bio" rows="3" value={formData.bio} onChange={handleChange} placeholder={t('profile.bioPh')} className={inputCls} />
           </div>
         </Section>
 
-        {/* 2. TA'LIM */}
-        <Section n={2} icon={GraduationCap} title="Ta'lim va shahodatnoma" required>
+        <Section n={2} icon={GraduationCap} title={t('profile.s2')} required>
           <div>
-            <label className={labelCls}>Maktab / litsey / kollej nomi *</label>
-            <input type="text" name="school_name" value={formData.school_name} onChange={handleChange} placeholder="masalan: Andijon shahar 21-maktab" required className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>Shahodatnoma havolasi (ixtiyoriy, fayl yuklasangiz shart emas)</label>
-            <input type="url" name="diploma_url" value={formData.diploma_url} onChange={handleChange} placeholder="https://drive.google.com/..." className={inputCls} />
+            <label className={labelCls} htmlFor="p-school">{t('profile.school')}</label>
+            <input id="p-school" type="text" name="school_name" value={formData.school_name} onChange={handleChange} placeholder={t('profile.schoolPh')} required className={inputCls} />
           </div>
         </Section>
 
-        {/* HUJJATLAR */}
-        <Section n={3} icon={FolderLock} title="Hujjatlar" required>
-          {profileExists ? (
-            <Documents userId={session.user.id} documents={documents} onChange={saveDocuments} />
-          ) : (
-            <p className="text-base text-slate-600">Hujjat yuklash uchun avval yuqoridagi ma'lumotlarni to'ldirib, pastdagi "Saqlash" tugmasini bosing.</p>
-          )}
-        </Section>
-
-        {/* 3. IMTIHON */}
-        <Section n={4} icon={ClipboardCheck} title="Imtihon ballari">
+        <Section n={3} icon={ClipboardCheck} title={t('profile.s4')}>
           <div className="max-w-xs">
-            <label className={labelCls}>DTM / kirish imtihoni bali</label>
-            <input type="number" step="0.1" name="test_score" value={formData.test_score} onChange={handleChange} placeholder="masalan: 145.8" className={inputCls} />
-          </div>
-        </Section>
-
-        {/* 4. SERTIFIKATLAR */}
-        <Section
-          n={5}
-          icon={Award}
-          title="Sertifikatlar"
-          action={
-            <button
-              type="button"
-              onClick={addCertificate}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-apricot-100 hover:bg-apricot-200 text-apricot-800 text-sm font-semibold rounded-xl transition"
-            >
-              <Plus className="w-4 h-4" /> Qo'shish
-            </button>
-          }
-        >
-          {certificates.length === 0 ? (
-            <p className="text-base text-slate-500">
-              IELTS, CEFR yoki milliy sertifikatlaringiz bo'lsa, qo'shing — grant olish imkoniyatini oshiradi.
-            </p>
-          ) : (
-            certificates.map((cert, index) => (
-              <div key={index} className="p-4 bg-cream border-2 border-apricot-100 rounded-2xl space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-bold text-apricot-800">Sertifikat {index + 1}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeCertificate(index)}
-                    className="inline-flex items-center gap-1 text-sm text-red-600 hover:text-red-700 font-medium"
-                  >
-                    <Trash2 className="w-4 h-4" /> O'chirish
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <input type="text" placeholder="Nomi (IELTS, CEFR...)" value={cert.title} onChange={(e) => handleCertChange(index, 'title', e.target.value)} className={inputCls} />
-                  <input type="text" placeholder="Ball (7.0 yoki B2)" value={cert.score} onChange={(e) => handleCertChange(index, 'score', e.target.value)} className={inputCls} />
-                  <input type="url" placeholder="Fayl havolasi" value={cert.file_url} onChange={(e) => handleCertChange(index, 'file_url', e.target.value)} className={inputCls} />
-                </div>
-              </div>
-            ))
-          )}
-        </Section>
-
-        {/* 5. PORTFOLIO */}
-        <Section n={6} icon={Briefcase} title="Portfolio va yutuqlar">
-          <div>
-            <label className={labelCls}>Portfolio, GitHub yoki loyihalaringiz havolasi</label>
-            <input type="url" name="portfolio_url" value={formData.portfolio_url} onChange={handleChange} placeholder="https://..." className={inputCls} />
+            <label className={labelCls} htmlFor="p-score">{t('profile.score')}</label>
+            <input id="p-score" type="number" step="0.1" min="0" name="test_score" value={formData.test_score} onChange={handleChange} placeholder={t('profile.scorePh')} className={inputCls} />
           </div>
         </Section>
 
         <div className="sticky bottom-4 z-10">
-          <button
-            type="submit"
-            disabled={saving}
-            className="w-full py-4 bg-brand-800 hover:bg-brand-900 text-white text-lg font-semibold rounded-2xl shadow-lg shadow-brand-900/20 transition disabled:opacity-60"
-          >
-            {saving ? 'Saqlanmoqda...' : 'Saqlash'}
+          <button type="submit" disabled={saving} className="w-full py-4 bg-brand-800 hover:bg-brand-900 text-white text-lg font-semibold rounded-2xl shadow-lg shadow-brand-900/20 transition disabled:opacity-60">
+            {saving ? t('profile.saving') : t('profile.save')}
           </button>
         </div>
       </form>
+
+      <Section n={4} icon={FolderLock} title={t('profile.s3')} required>
+        {profileExists ? (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">{t('docs.private')}</p>
+            <DocKind userId={uid} kind="passport" label={t('docs.passport')} documents={documents} onChange={saveDocuments} />
+            <DocKind userId={uid} kind="diploma" label={t('docs.diploma')} documents={documents} onChange={saveDocuments} />
+            <DocKind userId={uid} kind="other" label={t('docs.other')} documents={documents} onChange={saveDocuments} />
+            <p className="text-xs text-slate-500">{t('docs.formats')}</p>
+          </div>
+        ) : locked}
+      </Section>
+
+      <Section n={5} icon={Award} title={t('profile.s5')}>
+        {profileExists ? (
+          <div className="space-y-3">
+            <p className="text-base text-slate-600">{t('profile.certHint')}</p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <input aria-label={t('profile.certTitle')} placeholder={t('profile.certTitle')} value={cert.title} onChange={(e) => setCert({ ...cert, title: e.target.value })} className={inputCls} />
+              <input aria-label={t('profile.certScore')} placeholder={t('profile.certScore')} value={cert.score} onChange={(e) => setCert({ ...cert, score: e.target.value })} className={inputCls} />
+            </div>
+            <DocKind
+              userId={uid} kind="certificate" label={t('docs.certificate')} documents={documents} onChange={saveDocuments}
+              extra={{ title: cert.title.trim(), score: cert.score.trim() }}
+              validateExtra={() => (cert.title.trim() ? '' : t('profile.certNeedTitle'))}
+              onUploaded={() => setCert({ title: '', score: '' })}
+            />
+            {legacyCerts.length > 0 && (
+              <ul className="space-y-2">
+                {legacyCerts.map((c, i) => (
+                  <li key={i} className="flex items-center gap-3 px-3 py-2.5 bg-white rounded-xl border border-brand-100 text-sm">
+                    <span className="flex-1 min-w-0 truncate font-medium">{c.title} {c.score}</span>
+                    {c.file_url && <a href={c.file_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand-700">{t('profile.legacyLink')} <ExternalLink className="w-3.5 h-3.5" /></a>}
+                    <button type="button" onClick={() => removeLegacy(i)} aria-label={t('docs.remove')} className="p-2 rounded-lg text-red-600 hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : locked}
+      </Section>
+
+      <Section n={6} icon={Briefcase} title={t('profile.s6')}>
+        {profileExists ? (
+          <div className="space-y-3">
+            <p className="text-base text-slate-600">{t('profile.portfolioHint')}</p>
+            <DocKind userId={uid} kind="portfolio" label={t('docs.portfolio')} documents={documents} onChange={saveDocuments} />
+          </div>
+        ) : locked}
+      </Section>
+
+      <Section n={7} icon={Send} title={t('profile.s7')}>
+        <TelegramConnect chatId={telegram} onChange={getProfile} />
+      </Section>
     </div>
   );
 }
 
-function Section({ n, icon: Icon, title, required, action, children }) {
+function Section({ n, icon: Icon, title, required, children }) {
+  const { t } = useLang();
   return (
     <section className="bg-white rounded-3xl border border-brand-100 p-5 sm:p-7 space-y-5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="relative flex items-center justify-center w-11 h-11 rounded-xl bg-brand-800 text-white shrink-0">
-            <Icon className="w-5 h-5" aria-hidden="true" />
-            <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center w-5 h-5 rounded-full bg-apricot-500 text-brand-950 text-xs font-bold">
-              {n}
-            </span>
-          </span>
-          <div>
-            <h3 className="text-xl font-bold text-brand-900">{title}</h3>
-            {required && <p className="text-sm text-apricot-700 font-medium">Majburiy</p>}
-          </div>
+      <div className="flex items-center gap-3">
+        <span className="relative flex items-center justify-center w-11 h-11 rounded-xl bg-brand-800 text-white shrink-0">
+          <Icon className="w-5 h-5" aria-hidden="true" />
+          <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center w-5 h-5 rounded-full bg-apricot-500 text-brand-950 text-xs font-bold">{n}</span>
+        </span>
+        <div>
+          <h3 className="text-xl font-bold text-brand-900">{title}</h3>
+          {required && <p className="text-sm text-apricot-700 font-medium">{t('profile.required')}</p>}
         </div>
-        {action}
       </div>
       {children}
     </section>
