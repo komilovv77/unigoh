@@ -1,0 +1,25 @@
+# Supabase'ning bepul loyihasi 7 kun faolsiz qolsa to'xtatiladi.
+# Bu vazifa haftasiga ikki marta bazaga oddiy so'rov yuborib, loyihani faol saqlaydi.
+# Kalit — ommaviy (publishable) kalit, u saytning o'zida ham ochiq turadi.
+name: Supabase keep-alive
+
+on:
+  schedule:
+    - cron: "17 6 * * 1,4"   # dushanba va payshanba, 11:17 Toshkent vaqti
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping Supabase
+        env:
+          SUPABASE_URL: https://hchynrszmfhaoawqggny.supabase.co
+          SUPABASE_KEY: sb_publishable_tcxiTqyYPD5whU4iavwoTA_5P6O9_Fi
+        run: |
+          code=$(curl -s -o /tmp/out.json -w "%{http_code}" \
+            "$SUPABASE_URL/rest/v1/universities?select=id&limit=1" \
+            -H "apikey: $SUPABASE_KEY")
+          echo "HTTP $code"; cat /tmp/out.json; echo
+          test "$code" = "200"
