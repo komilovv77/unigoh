@@ -128,7 +128,7 @@ export default function AuthModal({ isOpen, onClose }) {
           {mode === 'signin' ? (
             <p>{t('auth.noAccount')} <button onClick={() => setMode('signup')} className="text-brand-700 font-semibold hover:underline">{t('auth.signup')}</button></p>
           ) : (
-            <p>{t('auth.haveAccount')} <button onClick={() => setMode('signin')} className="text-brand-700 font-semibold hover:underline">{t('auth.signin')}</button></p>
+            <p>{t('auth.haveAccount')} <button onClick={() => setMode('signin')} className="text-brand-700 font-semibold hover:underline">{t('nav.login')}</button></p>
           )}
         </div>
       </div>
