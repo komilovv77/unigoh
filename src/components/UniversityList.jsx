@@ -2,11 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { MapPin, Award, Check, Send } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useLang, loc, programMeta } from '../i18n';
-import { AgreementModal } from './Agreement';
 
 const fmt = new Intl.NumberFormat('ru-RU');
 
-export default function UniversityList({ session, agreement, onApplied }) {
+export default function UniversityList({ session, onApplied }) {
   const { t, lang } = useLang();
   const [unis, setUnis] = useState([]);
   const [applied, setApplied] = useState({});
@@ -14,7 +13,6 @@ export default function UniversityList({ session, agreement, onApplied }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState({ text: '', error: false });
-  const [pending, setPending] = useState(null); // imzodan keyin topshiriladigan ariza
 
   useEffect(() => {
     (async () => {
@@ -45,7 +43,6 @@ export default function UniversityList({ session, agreement, onApplied }) {
     });
     setBusy('');
     if (error) {
-      if (error.message?.includes('AGREEMENT_REQUIRED')) { setPending({ uni, program }); return; }
       setMessage({ text: error.code === '23505' ? t('unis.already') : t('unis.error', { msg: error.message }), error: true });
       return;
     }
@@ -57,7 +54,6 @@ export default function UniversityList({ session, agreement, onApplied }) {
   function apply(uni, program) {
     setMessage({ text: '', error: false });
     if (!profileOk) return setMessage({ text: t('unis.fillProfile'), error: true });
-    if (agreement.required) return setPending({ uni, program });
     submit(uni, program);
   }
 
@@ -123,20 +119,6 @@ export default function UniversityList({ session, agreement, onApplied }) {
         );
       })}
 
-      {pending && agreement.template && (
-        <AgreementModal
-          template={agreement.template}
-          userId={session.user.id}
-          defaultName={profile?.full_name}
-          onClose={() => setPending(null)}
-          onSigned={async () => {
-            const { uni, program } = pending;
-            setPending(null);
-            await agreement.reload();
-            submit(uni, program);
-          }}
-        />
-      )}
     </div>
   );
 }

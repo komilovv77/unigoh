@@ -23,7 +23,7 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Til o'zgarsa, profilga ham yozamiz (Telegram xabarlari shu tilda keladi)
+  // Til o'zgarsa, profilga ham yozamiz (SMS shu tilda keladi)
   const onLang = useCallback((l) => {
     if (session) supabase.from('profiles').update({ lang: l }).eq('id', session.user.id).then(() => {});
   }, [session]);
@@ -115,8 +115,8 @@ function StudentHome({ session }) {
 
       <div className="mt-6">
         {tab === 'profile' && <Profile session={session} />}
-        {tab === 'universities' && <UniversityList session={session} agreement={agreement} onApplied={loadNotifs} />}
-        {tab === 'applications' && <MyApplications session={session} agreement={agreement} onBrowse={() => setTab('universities')} />}
+        {tab === 'universities' && <UniversityList session={session} onApplied={loadNotifs} />}
+        {tab === 'applications' && <MyApplications session={session} agreement={agreement} onBrowse={() => setTab('universities')} onChanged={loadNotifs} />}
         {tab === 'notifications' && <Notifications items={notifs} onChange={loadNotifs} />}
       </div>
     </main>

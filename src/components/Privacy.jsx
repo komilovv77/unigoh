@@ -2,7 +2,7 @@ import React from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useLang } from '../i18n';
 
-// Murojaat manzili: email yoki Telegram yozilsa, sahifada ko'rinadi
+// Murojaat manzili (email yoki telefon) yozilsa, sahifada ko'rinadi
 const CONTACT = '';
 const UPDATED = '31.10.2026';
 
@@ -20,19 +20,19 @@ const CONTENT = {
          'siz yuklagan hujjatlar (pasport yoki ID karta, attestat, sertifikatlar, portfolio);',
          'UniGoh bilan shartnomaga qo\'ygan elektron imzongiz;',
          'arizalaringiz: qaysi universitet va yo\'nalishga, qachon topshirilgani va holati;',
-         'Telegram xabarlarini ulasangiz — Telegram chat raqamingiz.'],
+         ],
       ]],
       ['2. Ma\'lumotlardan nima uchun foydalanamiz', [
         ['siz tanlagan universitetga arizangizni yetkazish;',
-         'ariza holati, suhbat yoki imtihon sanasi va universitet xabarlarini sizga saytda va Telegram\'da yetkazish;',
+         'ariza holati, suhbat yoki imtihon sanasi va universitet xabarlarini sizga saytda va SMS orqali yetkazish;',
          'akkauntingiz xavfsizligini ta\'minlash va parolni tiklash;',
          'xizmatni yaxshilash uchun umumlashtirilgan (ismsiz) statistika.'],
         'Ma\'lumotlaringizni reklama uchun sotmaymiz va uchinchi shaxslarga bermaymiz.',
       ]],
       ['3. Ma\'lumotlaringizni kim ko\'radi', [
         ['Siz: o\'z profilingiz, hujjatlaringiz va arizalaringizni.',
-         'Siz ariza bergan universitet: UniGoh arizangizni unga yuborgandan keyingina, faqat o\'ziga topshirilgan arizalar va ular bilan bog\'liq profilingiz hamda hujjatlaringizni. Boshqa universitetlar ularni ko\'rmaydi.',
-         'UniGoh administratorlari: arizani tekshirish, universitetga yuborish va muammolarni hal qilish uchun.'],
+         'Siz ariza bergan universitet: faqat o\'ziga topshirilgan arizalar va ular bilan bog\'liq profilingiz hamda hujjatlaringizni. Telefon raqamingiz va emailingiz universitetga faqat siz qabul taklifiga rozilik berganingizdan keyin ochiladi. Boshqa universitetlar ma\'lumotlaringizni ko\'rmaydi.',
+         'UniGoh administratorlari: arizalarni kuzatish va muammolarni hal qilish uchun.'],
       ]],
       ['4. Ma\'lumotlar qayerda saqlanadi', [
         'Ma\'lumotlar Supabase xizmatining serverlarida (Janubiy Koreya, Seul) saqlanadi, sayt esa Vercel orqali tarqatiladi. Ulanishlar shifrlangan (HTTPS). Hujjatlar yopiq omborda turadi va faqat qisqa muddatli havola orqali ochiladi. Kim qaysi ma\'lumotni ko\'ra olishi bazaning o\'zida qoidalar bilan cheklangan.',
@@ -43,7 +43,6 @@ const CONTENT = {
       ['6. Sizning huquqlaringiz', [
         ['o\'z ma\'lumotlaringizni ko\'rish va kabinetda tuzatish;',
          'arizadan voz kechish;',
-         'Telegram xabarlarini istalgan vaqtda o\'chirish;',
          'akkaunt va ma\'lumotlaringizni o\'chirishni so\'rash;',
          'ma\'lumotlarni qayta ishlashga bergan roziligingizni qaytarib olish.'],
       ]],
@@ -71,19 +70,19 @@ const CONTENT = {
          'загруженные вами документы (паспорт или ID-карта, аттестат, сертификаты, портфолио);',
          'вашу электронную подпись под договором с UniGoh;',
          'ваши заявки: в какой университет и на какое направление, когда поданы и их статус;',
-         'если вы подключили уведомления в Telegram — номер вашего чата в Telegram.'],
+         ],
       ]],
       ['2. Зачем мы используем данные', [
         ['чтобы направить вашу заявку в выбранный вами университет;',
-         'чтобы сообщать вам о статусе заявки, датах собеседований и экзаменов и сообщениях университета на сайте и в Telegram;',
+         'чтобы сообщать вам о статусе заявки, датах собеседований и экзаменов и сообщениях университета на сайте и по SMS;',
          'чтобы обеспечивать безопасность аккаунта и восстанавливать пароль;',
          'для обобщённой (обезличенной) статистики, чтобы улучшать сервис.'],
         'Мы не продаём ваши данные для рекламы и не передаём их третьим лицам.',
       ]],
       ['3. Кто видит ваши данные', [
         ['Вы: свой профиль, документы и заявки.',
-         'Университет, в который вы подали заявку: только после того как UniGoh отправит ему заявку, и только заявки, поданные в этот университет, а также связанные с ними профиль и документы. Другие университеты их не видят.',
-         'Администраторы UniGoh: чтобы проверять заявки, отправлять их в университеты и решать проблемы.'],
+         'Университет, в который вы подали заявку: только заявки, поданные в этот университет, а также связанные с ними профиль и документы. Ваш телефон и email университет увидит только после того, как вы дадите согласие на предложение о зачислении. Другие университеты ваши данные не видят.',
+         'Администраторы UniGoh: чтобы следить за заявками и решать проблемы.'],
       ]],
       ['4. Где хранятся данные', [
         'Данные хранятся на серверах Supabase (Южная Корея, Сеул), сайт работает через Vercel. Соединения зашифрованы (HTTPS). Документы лежат в закрытом хранилище и открываются только по временной ссылке. Кто какие данные видит, ограничено правилами в самой базе данных.',
@@ -94,7 +93,6 @@ const CONTENT = {
       ['6. Ваши права', [
         ['просматривать и исправлять свои данные в кабинете;',
          'отозвать заявку;',
-         'в любой момент отключить уведомления в Telegram;',
          'потребовать удаления аккаунта и данных;',
          'отозвать согласие на обработку данных.'],
       ]],

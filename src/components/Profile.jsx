@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import Greeting, { firstName } from './Greeting';
-import { User, GraduationCap, ClipboardCheck, Award, Briefcase, Check, FolderLock, Send, Trash2, ExternalLink } from 'lucide-react';
+import { User, GraduationCap, ClipboardCheck, Award, Briefcase, Check, FolderLock, Trash2, ExternalLink } from 'lucide-react';
 import { DocKind } from './Documents';
-import TelegramConnect from './TelegramConnect';
 import { useLang } from '../i18n';
 
 const EMPTY = { full_name: '', phone: '', region: '', bio: '', school_name: '', test_score: '' };
@@ -18,7 +17,6 @@ export default function Profile({ session }) {
   const [documents, setDocuments] = useState([]);
   const [savedName, setSavedName] = useState('');
   const [profileExists, setProfileExists] = useState(false);
-  const [telegram, setTelegram] = useState(null);
   const [cert, setCert] = useState({ title: '', score: '' });
 
   useEffect(() => {
@@ -29,7 +27,7 @@ export default function Profile({ session }) {
     setLoading(true);
     const { data, error } = await supabase
       .from('profiles')
-      .select('full_name, phone, region, bio, school_name, test_score, certificates, documents, telegram_chat_id')
+      .select('full_name, phone, region, bio, school_name, test_score, certificates, documents')
       .eq('id', session.user.id)
       .maybeSingle();
     if (error) console.error('Profilni yuklashda xato:', error.message);
@@ -45,7 +43,6 @@ export default function Profile({ session }) {
       setLegacyCerts(Array.isArray(data.certificates) ? data.certificates.filter((c) => c && (c.title || c.file_url)) : []);
       setDocuments(Array.isArray(data.documents) ? data.documents : []);
       setSavedName(data.full_name || '');
-      setTelegram(data.telegram_chat_id);
       setProfileExists(true);
     } else {
       setFormData({ ...EMPTY, full_name: session.user.user_metadata?.full_name || '' });
@@ -137,6 +134,7 @@ export default function Profile({ session }) {
             <div>
               <label className={labelCls} htmlFor="p-phone">{t('profile.phone')}</label>
               <input id="p-phone" type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+998 90 123 45 67" required className={inputCls} />
+              <p className="mt-1.5 text-sm text-slate-500">{t('profile.phoneHint')}</p>
             </div>
             <div>
               <label className={labelCls} htmlFor="p-region">{t('profile.region')}</label>
@@ -220,9 +218,6 @@ export default function Profile({ session }) {
         ) : locked}
       </Section>
 
-      <Section n={7} icon={Send} title={t('profile.s7')}>
-        <TelegramConnect chatId={telegram} onChange={getProfile} />
-      </Section>
     </div>
   );
 }
