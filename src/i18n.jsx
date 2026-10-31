@@ -109,6 +109,7 @@ const uz = {
 
   'docs.private': "Fayllar yopiq omborda saqlanadi. Ularni faqat siz, ariza yuborilgan universitet va UniGoh administratori ko'ra oladi.",
   'docs.passport': 'Pasport yoki ID karta',
+  'docs.dtm': 'DTM / imtihon natijasi varaqasi',
   'docs.diploma': 'Shahodatnoma / attestat / diplom',
   'docs.other': 'Boshqa hujjat',
   'docs.portfolio': 'Portfolio fayli',
@@ -314,6 +315,7 @@ const ru = {
 
   'docs.private': 'Файлы хранятся в закрытом хранилище. Их видите только вы, университет, куда отправлена заявка, и администратор UniGoh.',
   'docs.passport': 'Паспорт или ID-карта',
+  'docs.dtm': 'Результат DTM / экзамена (лист)',
   'docs.diploma': 'Аттестат / диплом',
   'docs.other': 'Другой документ',
   'docs.portfolio': 'Файл портфолио',

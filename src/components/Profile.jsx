@@ -77,9 +77,13 @@ export default function Profile({ session }) {
   }
 
   async function saveDocuments(next) {
-    const { error } = await supabase.from('profiles').update({ documents: next }).eq('id', session.user.id);
+    // Profil hali saqlanmagan bo'lsa ham hujjat yuklash mumkin: qator avtomatik yaratiladi
+    const { error } = profileExists
+      ? await supabase.from('profiles').update({ documents: next }).eq('id', session.user.id)
+      : await supabase.from('profiles').upsert({ id: session.user.id, full_name: formData.full_name.trim(), phone: formData.phone.trim(), region: formData.region.trim(), school_name: formData.school_name.trim(), bio: formData.bio, certificates: legacyCerts, lang, documents: next, updated_at: new Date() });
     if (error) { setMessage({ text: t('profile.error', { msg: error.message }), error: true }); return false; }
     setDocuments(next);
+    setProfileExists(true);
     return true;
   }
 
@@ -107,7 +111,6 @@ export default function Profile({ session }) {
   }
 
   const uid = session.user.id;
-  const locked = <p className="text-base text-slate-600">{t('profile.saveFirst')}</p>;
 
   return (
     <div className="space-y-6">
@@ -159,6 +162,8 @@ export default function Profile({ session }) {
             <label className={labelCls} htmlFor="p-score">{t('profile.score')}</label>
             <input id="p-score" type="number" step="0.1" min="0" name="test_score" value={formData.test_score} onChange={handleChange} placeholder={t('profile.scorePh')} className={inputCls} />
           </div>
+          <DocKind userId={session.user.id} kind="dtm" label={t('docs.dtm')} documents={documents} onChange={saveDocuments} />
+          <p className="text-xs text-slate-500">{t('docs.formats')}</p>
         </Section>
 
         <div className="sticky bottom-4 z-10">
@@ -169,7 +174,7 @@ export default function Profile({ session }) {
       </form>
 
       <Section n={4} icon={FolderLock} title={t('profile.s3')} required>
-        {profileExists ? (
+        {(
           <div className="space-y-4">
             <p className="text-sm text-slate-600">{t('docs.private')}</p>
             <DocKind userId={uid} kind="passport" label={t('docs.passport')} documents={documents} onChange={saveDocuments} />
@@ -177,11 +182,11 @@ export default function Profile({ session }) {
             <DocKind userId={uid} kind="other" label={t('docs.other')} documents={documents} onChange={saveDocuments} />
             <p className="text-xs text-slate-500">{t('docs.formats')}</p>
           </div>
-        ) : locked}
+        )}
       </Section>
 
       <Section n={5} icon={Award} title={t('profile.s5')}>
-        {profileExists ? (
+        {(
           <div className="space-y-3">
             <p className="text-base text-slate-600">{t('profile.certHint')}</p>
             <div className="grid sm:grid-cols-2 gap-3">
@@ -206,16 +211,16 @@ export default function Profile({ session }) {
               </ul>
             )}
           </div>
-        ) : locked}
+        )}
       </Section>
 
       <Section n={6} icon={Briefcase} title={t('profile.s6')}>
-        {profileExists ? (
+        {(
           <div className="space-y-3">
             <p className="text-base text-slate-600">{t('profile.portfolioHint')}</p>
             <DocKind userId={uid} kind="portfolio" label={t('docs.portfolio')} documents={documents} onChange={saveDocuments} />
           </div>
-        ) : locked}
+        )}
       </Section>
 
     </div>
