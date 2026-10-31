@@ -3,6 +3,7 @@ import { CalendarDays, CheckCircle2, MessageSquare, PartyPopper, PhoneCall, XCir
 import { supabase } from '../lib/supabaseClient';
 import { useLang, loc, formatDate } from '../i18n';
 import { AgreementStatus, AgreementModal } from './Agreement';
+import { DocKind } from './Documents';
 
 const STEPS = ['NEW', 'DOCS_REVIEW', 'EXAM', 'ADMITTED', 'SENT', 'CONTRACT', 'ENROLLED'];
 
@@ -15,18 +16,20 @@ export default function MyApplications({ session, agreement, onBrowse, onChanged
   const [busy, setBusy] = useState('');
   const [signFor, setSignFor] = useState(null);
   const [profileName, setProfileName] = useState('');
+  const [documents, setDocuments] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     const [{ data: a, error }, { data: u }, { data: p }] = await Promise.all([
       supabase.from('applications').select('*').eq('student_id', session.user.id).order('updated_at', { ascending: false }),
       supabase.from('universities').select('id, name, programs'),
-      supabase.from('profiles').select('full_name').eq('id', session.user.id).maybeSingle(),
+      supabase.from('profiles').select('full_name, documents').eq('id', session.user.id).maybeSingle(),
     ]);
     if (error) setError(error.message);
     setApps(a || []);
     setUnis(Object.fromEntries((u || []).map((x) => [x.id, x])));
     setProfileName(p?.full_name || '');
+    setDocuments(Array.isArray(p?.documents) ? p.documents : []);
     setLoading(false);
   }, [session.user.id]);
 
@@ -39,6 +42,13 @@ export default function MyApplications({ session, agreement, onBrowse, onChanged
     if (error) setError(error.message);
     load();
     onChanged?.();
+  }
+
+  async function saveDocuments(next) {
+    const { error } = await supabase.from('profiles').update({ documents: next }).eq('id', session.user.id);
+    if (error) { setError(error.message); return false; }
+    setDocuments(next);
+    return true;
   }
 
   async function forward(app) {
@@ -82,6 +92,8 @@ export default function MyApplications({ session, agreement, onBrowse, onChanged
         const withdrawn = a.status === 'WITHDRAWN';
         const admitted = a.status === 'ADMITTED';
         const canClaim = ['SENT', 'CONTRACT', 'ENROLLED'].includes(a.status) && !a.student_enrolled_claim;
+        // Universitet UniGoh'da rad etgan yoki javob bermagan bo'lsa ham, talaba o'qishga kirganini bildira oladi
+        const canLateClaim = !canClaim && !a.student_enrolled_claim && a.status !== 'ENROLLED';
         const canWithdraw = ['NEW', 'DOCS_REVIEW', 'EXAM'].includes(a.status);
 
         return (
@@ -150,8 +162,20 @@ export default function MyApplications({ session, agreement, onBrowse, onChanged
               </p>
             )}
             {a.student_enrolled_claim && (
-              <p className="mt-4 flex items-center gap-2 text-emerald-700 font-semibold">
-                <PartyPopper className="w-5 h-5" /> {t('apps.congrats')}
+              <div className="mt-4 space-y-3">
+                <p className="flex items-center gap-2 text-emerald-700 font-semibold">
+                  <PartyPopper className="w-5 h-5" /> {t('apps.congrats')}
+                </p>
+                <p className="text-sm text-slate-600">{t('apps.proofHint')}</p>
+                <DocKind userId={session.user.id} kind="enrollment" label={t('docs.enrollment')} documents={documents} onChange={saveDocuments} />
+              </div>
+            )}
+            {canLateClaim && (
+              <p className="mt-4 text-sm text-slate-500">
+                {t('apps.lateClaimQ')}{' '}
+                <button onClick={() => update(a.id, { student_enrolled_claim: true }, t('apps.claimConfirm'))} className="font-semibold text-brand-700 underline hover:text-brand-900">
+                  {t('apps.lateClaim')}
+                </button>
               </p>
             )}
 
