@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useLang, loc, formatDate } from '../i18n';
 import { LogoMark } from './Logo';
 import { G, fill } from './grantText';
+import { DocKind } from './Documents';
 
 const fmt = new Intl.NumberFormat('ru-RU');
 
@@ -22,7 +23,7 @@ export default function Grant({ session, onGoProfile, onChanged }) {
     const [{ data: s }, { data: mine }, { data: p }, { data: u }] = await Promise.all([
       supabase.from('grant_settings').select('*').maybeSingle(),
       supabase.rpc('my_grant'),
-      supabase.from('profiles').select('full_name, phone, test_score').eq('id', session.user.id).maybeSingle(),
+      supabase.from('profiles').select('full_name, phone, test_score, documents').eq('id', session.user.id).maybeSingle(),
       supabase.from('universities').select('id, name, programs').eq('is_active', true).order('name'),
     ]);
     setSettings(s || null);
@@ -55,7 +56,7 @@ export default function Grant({ session, onGoProfile, onChanged }) {
         <Status app={app} g={g} vars={vars} onEdit={() => setEditing(true)} canEdit={open && app.fee_status === 'unpaid'} />
       ) : open ? (
         <ApplyForm
-          g={g} lang={lang} settings={settings} profile={profile} unis={unis} existing={app}
+          g={g} lang={lang} settings={settings} profile={profile} unis={unis} existing={app} userId={session.user.id}
           onGoProfile={onGoProfile}
           onDone={() => { setEditing(false); load(); onChanged?.(); }}
           onCancel={app ? () => setEditing(false) : null}
@@ -107,7 +108,15 @@ function Rules({ g }) {
   );
 }
 
-function ApplyForm({ g, lang, settings, profile, unis, existing, onGoProfile, onDone, onCancel }) {
+function ApplyForm({ g, lang, settings, profile, unis, existing, userId, onGoProfile, onDone, onCancel }) {
+  const [documents, setDocuments] = useState(Array.isArray(profile?.documents) ? profile.documents : []);
+  const [cert, setCert] = useState({ title: '', score: '' });
+  async function saveDocuments(next) {
+    const { error } = await supabase.from('profiles').update({ documents: next }).eq('id', userId);
+    if (error) { setError(error.message); return false; }
+    setDocuments(next);
+    return true;
+  }
   const init = (existing?.choices || []).map((c) => ({ university_id: c.university_id, program_id: c.program_id }));
   const [choices, setChoices] = useState([0, 1, 2].map((i) => init[i] || { university_id: '', program_id: '' }));
   const [motivation, setMotivation] = useState(existing?.motivation || '');
@@ -186,6 +195,21 @@ function ApplyForm({ g, lang, settings, profile, unis, existing, onGoProfile, on
             </div>
           );
         })}
+      </Box>
+
+      <Box className="space-y-3">
+        <h2 className="text-xl font-bold text-brand-900">{g.certs} <span className="text-base font-normal text-slate-500">({g.optional})</span></h2>
+        <p className="text-base text-slate-600">{g.certsHint}</p>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <input aria-label={g.certTitle} placeholder={g.certTitle} value={cert.title} onChange={(e) => setCert({ ...cert, title: e.target.value })} className={inputCls} />
+          <input aria-label={g.certScore} placeholder={g.certScore} value={cert.score} onChange={(e) => setCert({ ...cert, score: e.target.value })} className={inputCls} />
+        </div>
+        <DocKind
+          userId={userId} kind="certificate" label={g.certFile} documents={documents} onChange={saveDocuments}
+          extra={{ title: cert.title.trim(), score: cert.score.trim() }}
+          validateExtra={() => (cert.title.trim() ? '' : g.certNeedTitle)}
+          onUploaded={() => setCert({ title: '', score: '' })}
+        />
       </Box>
 
       <Box className="space-y-3">
