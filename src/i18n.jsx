@@ -74,6 +74,7 @@ const uz = {
   'tabs.universities': 'Universitetlar',
   'tabs.applications': 'Arizalarim',
   'tabs.notifications': 'Xabarlar',
+  'tabs.grant': 'Grant',
 
   'profile.loading': 'Profil yuklanmoqda',
   'profile.saved': "Ma'lumotlar saqlandi.",
@@ -196,6 +197,9 @@ const uz = {
   'notif.markAll': "Hammasini o'qilgan deb belgilash",
   'notif.submitted': "Ariza topshirildi: {university} — {program}. Universitet ko'rib chiqadi, javob SMS orqali keladi.",
   'notif.exam': '{university}: suhbat yoki imtihon sanasi — {date}.',
+  'notif.grant_submitted': "Grant arizangiz qabul qilindi ({code}). Ariza to'lovidan so'ng ko'rib chiqishga o'tadi.",
+  'notif.grant_paid': "Grant arizangiz ({code}) ko'rib chiqishga o'tdi. Natijalar barcha ishtirokchilarga bir kunda e'lon qilinadi.",
+  'notif.grant_result': "Grant tanlovi natijasi tayyor ({code}). «Grant» bo'limida xatni oching.",
   'notif.note': '{university} universitetidan xabar: {note}',
   'notif.status.SENT': "Ma'lumotlaringiz universitetga yuborildi: {university}. Universitet tez orada siz bilan bog'lanadi.",
   'notif.status.DOCS_REVIEW': "{university} arizangizni ko'rib chiqmoqda.",
@@ -284,6 +288,7 @@ const ru = {
   'tabs.universities': 'Университеты',
   'tabs.applications': 'Мои заявки',
   'tabs.notifications': 'Уведомления',
+  'tabs.grant': 'Грант',
 
   'profile.loading': 'Загрузка профиля',
   'profile.saved': 'Данные сохранены.',
@@ -406,6 +411,9 @@ const ru = {
   'notif.markAll': 'Отметить все как прочитанные',
   'notif.submitted': 'Заявка подана: {university} — {program}. Университет рассмотрит её, ответ придёт по SMS.',
   'notif.exam': '{university}: дата собеседования или экзамена — {date}.',
+  'notif.grant_submitted': 'Ваша заявка на грант принята ({code}). После оплаты сбора она поступит на рассмотрение.',
+  'notif.grant_paid': 'Ваша заявка на грант ({code}) поступила на рассмотрение. Результаты объявляются всем участникам в один день.',
+  'notif.grant_result': 'Результат конкурса грантов готов ({code}). Откройте письмо в разделе «Грант».',
   'notif.note': 'Сообщение от университета {university}: {note}',
   'notif.status.SENT': 'Ваши данные переданы в университет: {university}. Университет скоро свяжется с вами.',
   'notif.status.DOCS_REVIEW': '{university} рассматривает вашу заявку.',
@@ -475,7 +483,7 @@ export function formatDate(d, lang, withTime = true) {
 
 export function notificationText(n, t) {
   const d = n.data || {};
-  const vars = { university: d.university, program: d.program, note: d.note, date: d.date_local };
+  const vars = { university: d.university, program: d.program, note: d.note, date: d.date_local, code: d.code };
   if (n.kind === 'status') {
     const key = `notif.status.${d.status}`;
     return t(DICT.uz[key] ? key : 'notif.status.other', vars);

@@ -7,6 +7,7 @@ import AuthModal, { NewPasswordModal } from './components/AuthModal';
 import UniversityList from './components/UniversityList';
 import MyApplications from './components/MyApplications';
 import Notifications from './components/Notifications';
+import Grant from './components/Grant';
 import Privacy from './components/Privacy';
 import { useAgreement } from './components/Agreement';
 import { LangProvider, useLang } from './i18n';
@@ -69,7 +70,7 @@ function Shell({ session }) {
   );
 }
 
-const TABS = ['profile', 'universities', 'applications', 'notifications'];
+const TABS = ['profile', 'universities', 'applications', 'grant', 'notifications'];
 
 function StudentHome({ session }) {
   const { t } = useLang();
@@ -93,7 +94,7 @@ function StudentHome({ session }) {
 
   return (
     <main className="max-w-3xl mx-auto px-4 py-6">
-      <nav className="grid grid-cols-2 sm:flex gap-1 p-1.5 bg-white border border-brand-100 rounded-2xl" aria-label={t('tabs.label')}>
+      <nav className="grid grid-cols-3 sm:flex gap-1 p-1.5 bg-white border border-brand-100 rounded-2xl" aria-label={t('tabs.label')}>
         {TABS.map((id) => (
           <button
             key={id}
@@ -117,6 +118,7 @@ function StudentHome({ session }) {
         {tab === 'profile' && <Profile session={session} />}
         {tab === 'universities' && <UniversityList session={session} onApplied={loadNotifs} />}
         {tab === 'applications' && <MyApplications session={session} agreement={agreement} onBrowse={() => setTab('universities')} onChanged={loadNotifs} />}
+        {tab === 'grant' && <Grant session={session} onGoProfile={() => setTab('profile')} onChanged={loadNotifs} />}
         {tab === 'notifications' && <Notifications items={notifs} onChange={loadNotifs} />}
       </div>
     </main>
