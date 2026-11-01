@@ -118,7 +118,7 @@ function StudentHome({ session }) {
         {tab === 'profile' && <Profile session={session} />}
         {tab === 'universities' && <UniversityList session={session} onApplied={loadNotifs} />}
         {tab === 'applications' && <MyApplications session={session} agreement={agreement} onBrowse={() => setTab('universities')} onChanged={loadNotifs} />}
-        {tab === 'grant' && <Grant session={session} onGoProfile={() => setTab('profile')} onChanged={loadNotifs} />}
+        {tab === 'grant' && <Grant session={session} onGoProfile={() => setTab('profile')} onGoApplications={() => setTab('applications')} onChanged={loadNotifs} />}
         {tab === 'notifications' && <Notifications items={notifs} onChange={loadNotifs} />}
       </div>
     </main>

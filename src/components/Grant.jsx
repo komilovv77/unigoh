@@ -8,7 +8,7 @@ import { DocKind } from './Documents';
 
 const fmt = new Intl.NumberFormat('ru-RU');
 
-export default function Grant({ session, onGoProfile, onChanged }) {
+export default function Grant({ session, onGoProfile, onGoApplications, onChanged }) {
   const { lang } = useLang();
   const g = G[lang] || G.uz;
   const [settings, setSettings] = useState(null);
@@ -45,7 +45,7 @@ export default function Grant({ session, onGoProfile, onChanged }) {
   // Natija e'lon qilingan
   if (app && app.published_at) {
     if (!app.decision) return <Box><p className="text-lg text-slate-700">{g.notConsidered}</p></Box>;
-    return <Result app={app} g={g} lang={lang} />;
+    return <Result app={app} g={g} lang={lang} onReload={() => { load(); onChanged?.(); }} onGoApplications={onGoApplications} />;
   }
 
   return (
@@ -86,7 +86,7 @@ function Hero({ g, vars, settings, lang }) {
       <p className="mt-2 text-lg text-brand-100 max-w-xl">{g.lead}</p>
       <h2 className="mt-6 text-sm font-bold uppercase tracking-wider text-apricot-300">{g.req}</h2>
       <ul className="mt-2 space-y-1.5 text-brand-50">
-        {[g.req1, g.req2, g.req3, g.req4].map((r) => (
+        {[g.req1, g.req2, g.req3, g.req4, g.req5].map((r) => (
           <li key={r} className="flex items-start gap-2"><CheckCircle2 className="w-5 h-5 shrink-0 text-apricot-400 mt-0.5" /> {fill(r, vars)}</li>
         ))}
       </ul>
@@ -172,13 +172,14 @@ function ApplyForm({ g, lang, settings, profile, unis, existing, userId, onGoPro
 
       <Box className="space-y-4">
         <h2 className="text-xl font-bold text-brand-900">{g.choices}</h2>
+        <p className="text-base text-slate-600">{g.choicesHint}</p>
         {choices.map((c, i) => {
           const usedElsewhere = choices.filter((_, j) => j !== i).map((x) => x.university_id);
           const programs = uniById[c.university_id]?.programs || [];
           return (
             <div key={i} className="p-4 rounded-2xl bg-cream border-2 border-apricot-100">
               <p className="text-sm font-bold text-brand-900 mb-2">
-                {fill(g.choice, { n: i + 1 })} {i > 0 && <span className="font-normal text-slate-500">({g.optional})</span>}
+                {fill(g.choice, { n: i + 1 })} <span className="font-normal text-slate-500">({i === 0 ? g.first : g.optional})</span>
               </p>
               <div className="grid sm:grid-cols-2 gap-3">
                 <select className={inputCls} value={c.university_id} required={i === 0}
@@ -290,7 +291,7 @@ function Status({ app, g, vars, onEdit, canEdit }) {
 // ---------------------------------------------------------------------------
 // Natija: avval konvert, ochilganda — qabul xati
 // ---------------------------------------------------------------------------
-function Result({ app, g, lang }) {
+function Result({ app, g, lang, onReload, onGoApplications }) {
   const [opened, setOpened] = useState(false);
   const letterRef = useRef(null);
 
@@ -312,7 +313,9 @@ function Result({ app, g, lang }) {
 
   const L = g.letter;
   const d = L[app.decision] || L.REJECTED;
-  const vars = { name: app.full_name, season: app.season, percent: app.award_percent, university: app.award_university, program: app.award_program };
+  const vars = { name: app.full_name, season: app.season, percent: app.award_percent, university: app.award_university, program: app.award_program,
+    offer_university: app.offer_university, offer_program: app.offer_program };
+  const paragraphs = app.offer_application_id ? d.p : (d.pNoOffer || d.p);
   const accepted = app.decision === 'ACCEPTED';
 
   return (
@@ -345,7 +348,7 @@ function Result({ app, g, lang }) {
 
         <h1 className={`mt-6 text-2xl sm:text-3xl font-bold ${accepted ? 'text-brand-800' : 'text-brand-900'}`}>{d.head}</h1>
         <div className="mt-4 space-y-4 text-[16px] sm:text-[17px] leading-relaxed">
-          {d.p.map((p, i) => (
+          {paragraphs.map((p, i) => (
             <p key={i}>{i === 0 && accepted ? <b>{fill(p, vars)}</b> : fill(p, vars)}</p>
           ))}
         </div>
@@ -363,6 +366,8 @@ function Result({ app, g, lang }) {
           <p className="italic text-brand-800 text-lg">{L.sign}</p>
         </footer>
       </article>
+
+      <Offer app={app} g={g} onReload={onReload} onGoApplications={onGoApplications} />
 
       <div className="flex justify-center">
         <button onClick={() => printLetter(letterRef.current, app.code)} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border-2 border-brand-100 hover:border-brand-300 text-brand-800 font-semibold">
@@ -401,5 +406,81 @@ function Confetti() {
           animation: `ug-fall ${p.dur}s ${p.delay}s ease-in forwards`, borderRadius: 2 }} />
       ))}
     </div>
+  );
+}
+
+// Qabul taklifi: grant bilan yoki kontrakt asosida; talaba davom etadi yoki keyingi tanloviga o'tadi
+function Offer({ app, g, onReload, onGoApplications }) {
+  const o = g.offer;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [needSign, setNeedSign] = useState(false);
+  const total = (app.choices || []).length;
+  const hasNext = app.offer_rank && app.offer_rank < total;
+
+  async function accept() {
+    if (!window.confirm(fill(o.confirm, { university: app.offer_university }))) return;
+    setBusy(true); setError('');
+    const { error } = await supabase.rpc('accept_offer', { p_application: app.offer_application_id });
+    setBusy(false);
+    if (error) {
+      if (error.message?.includes('AGREEMENT_REQUIRED')) { setNeedSign(true); return; }
+      setError(error.message); return;
+    }
+    onReload();
+  }
+
+  async function next() {
+    if (!window.confirm(fill(o.nextConfirm, { university: app.offer_university }))) return;
+    setBusy(true); setError('');
+    const { error } = await supabase.rpc('grant_next_choice');
+    setBusy(false);
+    if (error) { setError(error.message); return; }
+    onReload();
+  }
+
+  if (!app.offer_application_id) {
+    return <Box><p className="text-base text-slate-700">{o.none}</p></Box>;
+  }
+
+  const sent = ['SENT', 'CONTRACT', 'ENROLLED'].includes(app.offer_status);
+  return (
+    <Box className="space-y-4 border-2 !border-apricot-300">
+      <div>
+        <p className="text-sm font-semibold text-apricot-700">{fill(o.rank, { n: app.offer_rank })}</p>
+        <h2 className="text-2xl font-bold text-brand-900">{app.offer_university}</h2>
+        <p className="text-lg text-slate-700">{app.offer_program}</p>
+        <p className="mt-2 inline-flex px-3 py-1 rounded-xl bg-brand-50 text-brand-900 font-semibold">
+          {app.offer_grant_percent ? fill(o.withGrant, { percent: app.offer_grant_percent }) : o.contract}
+        </p>
+      </div>
+      {sent ? (
+        <p className="flex items-start gap-2 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800">
+          <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" /> {fill(o.sent, { university: app.offer_university })}
+        </p>
+      ) : app.offer_status === 'ADMITTED' ? (
+        <>
+          <p className="text-slate-700">{o.ask}</p>
+          {needSign && (
+            <p className="p-3.5 rounded-2xl bg-apricot-50 border border-apricot-200 text-slate-800">
+              {o.sign} <button onClick={onGoApplications} className="font-semibold text-brand-700 underline">{o.toApps}</button>
+            </p>
+          )}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button onClick={accept} disabled={busy} className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-brand-800 hover:bg-brand-900 text-white font-semibold rounded-2xl disabled:opacity-60">
+              <CheckCircle2 className="w-5 h-5" /> {o.accept}
+            </button>
+            {hasNext && (
+              <button onClick={next} disabled={busy} className="px-5 py-3 text-slate-600 hover:text-brand-800 font-semibold rounded-2xl border-2 border-transparent hover:border-brand-100">
+                {o.next}
+              </button>
+            )}
+          </div>
+        </>
+      ) : (
+        <p className="text-slate-700">{o.closed}</p>
+      )}
+      {error && <p role="alert" className="text-red-700 font-medium">{error}</p>}
+    </Box>
   );
 }
