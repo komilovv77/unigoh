@@ -42,7 +42,7 @@ export default function Grant({ session, onGoProfile, onGoApplications, onChange
   const vars = { min: settings.min_dtm, fee: fmt.format(settings.fee) };
   const open = settings.accepting && !settings.results_published_at && (!settings.deadline || new Date(settings.deadline) >= new Date(new Date().toDateString()));
 
-  // Natija e'lon qilingan
+  // Results published
   if (app && app.published_at) {
     if (!app.decision) return <Box><p className="text-lg text-slate-700">{g.notConsidered}</p></Box>;
     return <Result app={app} g={g} lang={lang} onReload={() => { load(); onChanged?.(); }} onGoApplications={onGoApplications} />;
@@ -289,7 +289,7 @@ function Status({ app, g, vars, onEdit, canEdit }) {
 }
 
 // ---------------------------------------------------------------------------
-// Natija: avval konvert, ochilganda — qabul xati
+// Result: sealed envelope first, then the admission-style letter
 // ---------------------------------------------------------------------------
 function Result({ app, g, lang, onReload, onGoApplications }) {
   const [opened, setOpened] = useState(false);
@@ -387,7 +387,7 @@ function printLetter(el, code) {
     <style>body{background:#fff;margin:0;padding:24px}.letter{box-shadow:none!important;max-width:800px;margin:0 auto}@media print{body{padding:0}}</style>
     </head><body>${el.outerHTML}</body></html>`);
   w.document.close();
-  setTimeout(() => { try { w.focus(); w.print(); } catch (_) { /* foydalanuvchi o'zi chop etadi */ } }, 600);
+  setTimeout(() => { try { w.focus(); w.print(); } catch (_) { /* user can print manually */ } }, 600);
 }
 
 function Confetti() {
@@ -409,7 +409,7 @@ function Confetti() {
   );
 }
 
-// Qabul taklifi: grant bilan yoki kontrakt asosida; talaba davom etadi yoki keyingi tanloviga o'tadi
+// Admission offer (with or without a grant): accept, or move on to the next choice
 function Offer({ app, g, onReload, onGoApplications }) {
   const o = g.offer;
   const [busy, setBusy] = useState(false);

@@ -3,7 +3,7 @@ import { X } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useLang } from '../i18n'
 
-// Supabase xabarlarini tushunarli tilga
+// Map Supabase error messages to readable text
 export function authErrorKey(msg = '') {
   const m = msg.toLowerCase()
   if (m.includes('invalid login credentials')) return 'auth.err.invalid'
@@ -136,7 +136,7 @@ export default function AuthModal({ isOpen, onClose }) {
   )
 }
 
-// Emaildagi "parolni tiklash" havolasi bosilganda ochiladigan oyna
+// Dialog opened from the password-reset email link
 export function NewPasswordModal({ onDone }) {
   const { t } = useLang()
   const [password, setPassword] = useState('')

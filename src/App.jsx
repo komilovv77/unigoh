@@ -24,7 +24,7 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Til o'zgarsa, profilga ham yozamiz (SMS shu tilda keladi)
+  // Persist language changes to the profile (SMS is sent in this language)
   const onLang = useCallback((l) => {
     if (session) supabase.from('profiles').update({ lang: l }).eq('id', session.user.id).then(() => {});
   }, [session]);

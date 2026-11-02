@@ -1,20 +1,20 @@
 -- =============================================================================
--- UniGoh — Talaba shartnomasi, universitetga yuborish, xabarlar, Telegram bot
+-- UniGoh: student agreement, forwarding to universities, notifications
 --
--- Jarayon:
---   1. Talaba UniGoh–talaba shartnomasini elektron imzolaydi va ariza beradi (NEW)
---   2. UniGoh (bosh administrator) tekshiradi va universitetga yuboradi (SENT).
---      Universitet arizani faqat shundan keyin ko'radi.
---   3. Universitet talabani chaqiradi, o'z shartnomasini tuzadi (EXAM → ADMITTED → CONTRACT → ENROLLED)
---   4. Har bir o'zgarishda talabaga saytda xabar, Telegram ulangan bo'lsa — botdan xabar.
+-- Flow (superseded by migration h):
+--   1. Student signs the UniGoh agreement and applies (NEW)
+--   2. UniGoh reviews and forwards to the university (SENT).
+--      The university sees the application only after that.
+--   3. University contacts the student and signs its own contract (EXAM -> ADMITTED -> CONTRACT -> ENROLLED)
+--   4. Every change notifies the student on the site (Telegram was replaced by SMS later).
 --
--- Qayta ishga tushirish xavfsiz.
+-- Safe to re-run.
 -- =============================================================================
 
 create extension if not exists pg_net;
 
 -- -----------------------------------------------------------------------------
--- 1. Yangi holat: SENT (universitetga yuborildi)
+-- 1. New status: SENT (forwarded to the university)
 -- -----------------------------------------------------------------------------
 alter table public.applications drop constraint if exists applications_status_check;
 alter table public.applications add constraint applications_status_check check (status in (
@@ -23,7 +23,7 @@ alter table public.applications add constraint applications_status_check check (
 alter table public.applications add column if not exists forwarded_at timestamptz;
 alter table public.applications add column if not exists forwarded_by uuid references auth.users(id) on delete set null;
 
--- Universitet faqat yuborilgan arizalarni ko'radi va o'zgartiradi
+-- Universities see and change only forwarded applications
 drop policy if exists "app_uni_read" on public.applications;
 create policy "app_uni_read" on public.applications
   for select to authenticated
@@ -35,14 +35,14 @@ create policy "app_uni_update" on public.applications
   with check (university_id = (select public.my_university()) and status <> 'NEW');
 
 -- -----------------------------------------------------------------------------
--- 2. Profil: til va Telegram
+-- 2. Profile: language and Telegram
 -- -----------------------------------------------------------------------------
 alter table public.profiles add column if not exists lang text not null default 'uz';
 alter table public.profiles drop constraint if exists profiles_lang_check;
 alter table public.profiles add constraint profiles_lang_check check (lang in ('uz', 'ru'));
 alter table public.profiles add column if not exists telegram_chat_id bigint;
 
--- telegram_chat_id ni faqat bot orqali ulash funksiyasi o'zgartira oladi
+-- telegram_chat_id can only be changed by the bot linking function
 create or replace function public.profiles_protect()
 returns trigger language plpgsql set search_path = public as $$
 begin
@@ -61,7 +61,7 @@ create trigger profiles_protect before insert or update on public.profiles
   for each row execute function public.profiles_protect();
 
 -- -----------------------------------------------------------------------------
--- 3. Shartnoma shablonlari (UniGoh–talaba) va imzolar
+-- 3. Agreement templates (UniGoh-student) and signatures
 -- -----------------------------------------------------------------------------
 create table if not exists public.contract_templates (
   version     integer primary key,
@@ -132,10 +132,10 @@ create policy "agreements_staff_read" on public.student_agreements
     (select public.is_master())
     or exists (select 1 from public.applications a where a.student_id = student_agreements.student_id)
   );
--- Imzo o'zgartirilmaydi va o'chirilmaydi
+-- Signatures are immutable and cannot be deleted
 revoke update, delete on public.student_agreements from authenticated, anon;
 
--- Yangi versiyani e'lon qilish (faqat master)
+-- Publish a new version (master only)
 create or replace function public.publish_contract_template(p_version integer)
 returns void language plpgsql security definer set search_path = public as $$
 begin
@@ -151,7 +151,7 @@ revoke all on function public.publish_contract_template(integer) from public, an
 grant execute on function public.publish_contract_template(integer) to authenticated;
 
 -- -----------------------------------------------------------------------------
--- 4. Arizalar triggeri: imzo talabi, universitetga yuborish, rollar
+-- 4. Application trigger: signature requirement, forwarding, roles
 -- -----------------------------------------------------------------------------
 create or replace function public.applications_guard()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -223,7 +223,7 @@ end;
 $$;
 revoke all on function public.applications_guard() from public, anon, authenticated;
 
--- Nazorat ko'rinishi: yangi holat bilan
+-- Monitoring view with the new status
 create or replace view public.application_flags
 with (security_invoker = true) as
 select
@@ -244,7 +244,7 @@ grant select on public.application_flags to authenticated;
 revoke all on public.application_flags from anon;
 
 -- -----------------------------------------------------------------------------
--- 5. Xabarlar (saytda) va Telegram
+-- 5. Notifications (site) and Telegram
 -- -----------------------------------------------------------------------------
 create table if not exists public.notifications (
   id              bigint generated always as identity primary key,
@@ -267,7 +267,7 @@ create policy "notifications_own_update" on public.notifications
 revoke insert, delete, update on public.notifications from authenticated, anon;
 grant update (read_at) on public.notifications to authenticated;
 
--- Telegram sozlamalari API'ga ochiq bo'lmagan alohida sxemada
+-- Telegram settings live in a schema not exposed through the API
 create schema if not exists private;
 revoke all on schema private from public, anon, authenticated;
 
@@ -284,7 +284,7 @@ create table if not exists private.telegram_link_codes (
   expires_at  timestamptz not null
 );
 
--- Xabar matni (Telegram uchun; sayt xuddi shu matnlarni o'zi chiqaradi)
+-- Notification text (for Telegram; the site renders the same strings itself)
 create or replace function public.notification_text(p_kind text, p_data jsonb, p_lang text)
 returns text language plpgsql immutable set search_path = public as $$
 declare
@@ -323,7 +323,7 @@ begin
 end;
 $$;
 
--- Telegram'ga xabar yuborish (xatolik bo'lsa ham asosiy amal to'xtamaydi)
+-- Send to Telegram (failures never block the main operation)
 create or replace function public.telegram_send(p_chat bigint, p_text text)
 returns void language plpgsql security definer set search_path = public as $$
 declare
@@ -362,7 +362,7 @@ drop trigger if exists notifications_deliver on public.notifications;
 create trigger notifications_deliver after insert on public.notifications
   for each row execute function public.notifications_deliver();
 
--- Ariza o'zgarishlari → talabaga xabar
+-- Application changes -> student notification
 create or replace function public.applications_notify()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
@@ -401,7 +401,7 @@ drop trigger if exists applications_notify on public.applications;
 create trigger applications_notify after insert or update on public.applications
   for each row execute function public.applications_notify();
 
--- Talaba: Telegram'ni ulash kodi
+-- Student: Telegram linking code
 create or replace function public.telegram_link_code()
 returns jsonb language plpgsql security definer set search_path = public, extensions as $$
 declare
@@ -430,7 +430,7 @@ $$;
 revoke all on function public.telegram_unlink() from public, anon;
 grant execute on function public.telegram_unlink() to authenticated;
 
--- Bot webhook: Telegram → unigoh.study/api/telegram → shu funksiya
+-- Bot webhook: Telegram -> unigoh.study/api/telegram -> this function
 create or replace function public.telegram_webhook(p_secret text, p_update jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
@@ -480,7 +480,7 @@ $$;
 revoke all on function public.telegram_webhook(text, jsonb) from public;
 grant execute on function public.telegram_webhook(text, jsonb) to anon, authenticated;
 
--- Botni sozlash: faqat Supabase SQL Editor'dan (egasi) ishga tushiriladi
+-- Bot setup: run once from the Supabase SQL Editor (owner only)
 create or replace function private.telegram_setup(p_token text, p_bot_username text, p_webhook_url text default 'https://unigoh.study/api/telegram')
 returns text language plpgsql security definer set search_path = public, extensions as $$
 declare
@@ -500,7 +500,7 @@ $$;
 revoke all on function private.telegram_setup(text, text, text) from public, anon, authenticated;
 
 -- -----------------------------------------------------------------------------
--- 6. Shartnoma loyihasi (1-versiya, faol EMAS: admin panelda ko'rib, e'lon qilinadi)
+-- 6. Draft agreement (version 1, NOT active: review and publish from the admin panel)
 -- -----------------------------------------------------------------------------
 insert into public.contract_templates (version, title_uz, body_uz, title_ru, body_ru, is_active)
 values (1,

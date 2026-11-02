@@ -1,6 +1,6 @@
 -- =============================================================================
--- i. Xodim ismi: bosh admin xodim qo'shayotganda ismini yozadi (yoki keyin o'zgartiradi).
---    Panelda ro'yxatdan o'tgandagi ism emas, shu ism ko'rinadi.
+-- i. Staff names: set by the master admin when adding staff (editable later).
+--    This name is shown instead of the sign-up name.
 -- =============================================================================
 
 alter table public.staff_invites add column if not exists full_name text;
@@ -20,13 +20,13 @@ begin
   if nm is not null and length(nm) > 120 then
     raise exception 'Ism juda uzun';
   end if;
-  -- Taklif har doim saqlanadi (ism va universitet shu yerda turadi)
+  -- The invite is always stored (name and university live here)
   insert into public.staff_invites (email, role, university_id, full_name)
   values (mail, p_role, uni, nm)
   on conflict (email) do update
     set role = excluded.role, university_id = excluded.university_id,
         full_name = coalesce(excluded.full_name, public.staff_invites.full_name);
-  -- Akkaunt allaqachon bo'lsa, darhol biriktiriladi
+  -- Existing accounts are linked immediately
   select id into uid from auth.users where lower(email) = mail;
   if uid is not null then
     insert into public.staff (user_id, role, university_id, full_name)
@@ -38,7 +38,7 @@ begin
 end;
 $$;
 
--- Ro'yxatdan o'tganda: taklifdagi ism ustun
+-- On sign-up the invite name takes precedence
 create or replace function public.apply_staff_invite()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
@@ -69,7 +69,7 @@ begin
 end;
 $$;
 
--- Ismni keyin o'zgartirish
+-- Rename later
 create or replace function public.set_staff_name(p_user uuid, p_full_name text)
 returns void language plpgsql security definer set search_path = public as $$
 declare

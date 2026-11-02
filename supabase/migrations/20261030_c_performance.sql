@@ -1,8 +1,8 @@
 -- =============================================================================
--- UniGoh — Himoya qoidalarini tezlashtirish
--- auth.uid() va rol funksiyalari har bir qator uchun emas, so'rov boshida
--- bir marta hisoblanadi ("(select ...)" o'rami). Minglab yozuvda farq katta.
--- Qoidalarning MAZMUNI o'zgarmaydi. Qayta ishga tushirish xavfsiz.
+-- UniGoh: RLS performance
+-- auth.uid() and role helpers are evaluated once per query instead of per row
+-- (wrapped in "(select ...)"). Matters at thousands of rows.
+-- Policy semantics are unchanged. Safe to re-run.
 -- =============================================================================
 
 create index if not exists applications_student_uni_idx on public.applications (student_id, university_id);
@@ -10,7 +10,7 @@ create index if not exists applications_created_idx on public.applications (crea
 create index if not exists application_commissions_uni_idx on public.application_commissions (university_id, status);
 create index if not exists staff_university_idx on public.staff (university_id);
 
--- Universitetlar
+-- Universities
 drop policy if exists "uni_read" on public.universities;
 create policy "uni_read" on public.universities
   for select using (is_active or (select public.is_master()) or id = (select public.my_university()));
@@ -18,7 +18,7 @@ drop policy if exists "uni_master_write" on public.universities;
 create policy "uni_master_write" on public.universities
   for all using ((select public.is_master())) with check ((select public.is_master()));
 
--- Xodimlar
+-- Staff
 drop policy if exists "staff_read" on public.staff;
 create policy "staff_read" on public.staff
   for select using (user_id = (select auth.uid()) or (select public.is_master()));
@@ -26,7 +26,7 @@ drop policy if exists "staff_master_write" on public.staff;
 create policy "staff_master_write" on public.staff
   for all using ((select public.is_master())) with check ((select public.is_master()));
 
--- Arizalar
+-- Applications
 drop policy if exists "app_student_read" on public.applications;
 create policy "app_student_read" on public.applications
   for select using (student_id = (select auth.uid()));
@@ -47,7 +47,7 @@ drop policy if exists "app_master_all" on public.applications;
 create policy "app_master_all" on public.applications
   for all using ((select public.is_master())) with check ((select public.is_master()));
 
--- Tarix
+-- History
 drop policy if exists "events_read" on public.application_events;
 create policy "events_read" on public.application_events
   for select using (
@@ -59,7 +59,7 @@ create policy "events_read" on public.application_events
     )
   );
 
--- Profillar
+-- Profiles
 drop policy if exists "profile_own_select" on public.profiles;
 create policy "profile_own_select" on public.profiles
   for select using (id = (select auth.uid()));
@@ -79,7 +79,7 @@ create policy "profile_staff_select" on public.profiles
     )
   );
 
--- Moliya (faqat master)
+-- Finance (master only)
 drop policy if exists "terms_master" on public.university_terms;
 create policy "terms_master" on public.university_terms
   for all using ((select public.is_master())) with check ((select public.is_master()));

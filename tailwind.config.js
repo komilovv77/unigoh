@@ -1,9 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 
-// UniGoh brend ranglari
-// Lojuvard (asosiy): #1E3A8A — ishonch, ta'lim
-// O'rik (urg'u):     #F59E0B — imkoniyat, grant
-// Krem (fon):        #FEF3C7
+// UniGoh brand colors
+// Lapis (primary): #1E3A8A
+// Apricot (accent): #F59E0B
+// Cream (background): #FEF3C7
 const lapis = {
   50: '#eff4ff',
   100: '#dbe6fe',
@@ -43,7 +43,7 @@ export default {
         brand: lapis,
         apricot,
         cream: '#FFFBF2',
-        // Eski komponentlardagi indigo/purple klasslari avtomatik brend rangiga o'tadi
+        // Legacy indigo/purple classes map to brand colors automatically
         indigo: lapis,
         purple: apricot,
         emeraldCustom: '#059669',

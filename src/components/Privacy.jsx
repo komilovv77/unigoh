@@ -2,7 +2,7 @@ import React from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useLang } from '../i18n';
 
-// Murojaat manzili (email yoki telefon) yozilsa, sahifada ko'rinadi
+// Contact address (email or phone); shown on the page when set
 const CONTACT = '';
 const UPDATED = '31.10.2026';
 

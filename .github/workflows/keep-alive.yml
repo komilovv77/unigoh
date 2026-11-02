@@ -1,6 +1,6 @@
-# Supabase'ning bepul loyihasi 7 kun faolsiz qolsa to'xtatiladi.
-# Bu vazifa haftasiga ikki marta bazaga oddiy so'rov yuborib, loyihani faol saqlaydi.
-# Kalit — ommaviy (publishable) kalit, u saytning o'zida ham ochiq turadi.
+# Supabase pauses free projects after 7 days of inactivity.
+# This job sends a trivial query twice a week to keep the project active.
+# Uses the publishable key, which is already public in the site bundle.
 name: Supabase keep-alive
 
 on:

@@ -1,22 +1,22 @@
 -- =============================================================================
--- UniGoh — Yangi jarayon: universitet qaror chiqaradi → talaba rozilik beradi →
--- UniGoh talabani universitetga yuboradi. Xabarlar: saytda + SMS (Telegram o'rniga).
+-- UniGoh: offer workflow. The university decides -> the student consents ->
+-- UniGoh forwards the student. Notifications: site + SMS (replaces Telegram).
 --
---   NEW         → talaba ariza topshirdi (universitet ko'radi, lekin telefon/email yashirin)
---   DOCS_REVIEW → universitet ko'rib chiqmoqda
---   EXAM        → suhbat yoki imtihon (ixtiyoriy)
---   ADMITTED    → universitet qabul qildi → talabaga SMS → talaba saytda rozilik beradi
---   REJECTED    → universitet rad etdi → talabaga SMS
---   SENT        → talaba rozi bo'ldi (va shartnoma e'lon qilingan bo'lsa — imzoladi);
---                 universitetga SMS, telefon va email ochiladi
---   CONTRACT    → universitet talaba bilan shartnoma tuzdi
---   ENROLLED    → to'lov qildi (komissiya)
+--   NEW         -> submitted (university sees it, phone/email hidden)
+--   DOCS_REVIEW -> under review
+--   EXAM        -> interview or exam (optional)
+--   ADMITTED    -> admitted -> SMS to student -> student consents on the site
+--   REJECTED    -> rejected -> SMS to student
+--   SENT        -> student consented (and signed, if an agreement is published);
+--                 SMS to the university, phone and email revealed
+--   CONTRACT    -> university signed a contract with the student
+--   ENROLLED    -> paid (commission)
 --
--- Qayta ishga tushirish xavfsiz.
+-- Safe to re-run.
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
--- 1. Universitet barcha arizalarini ko'radi (qaror chiqarishi uchun)
+-- 1. Universities see all their applications (to decide on them)
 -- -----------------------------------------------------------------------------
 drop policy if exists "app_uni_read" on public.applications;
 create policy "app_uni_read" on public.applications
@@ -28,7 +28,7 @@ create policy "app_uni_update" on public.applications
   with check (university_id = (select public.my_university()));
 
 -- -----------------------------------------------------------------------------
--- 2. Profillar: universitet faqat maxsus funksiya orqali, kontaktlar yashirin holda
+-- 2. Profiles: universities only via a dedicated function, contacts masked
 -- -----------------------------------------------------------------------------
 drop policy if exists "profile_staff_select" on public.profiles;
 create policy "profile_staff_select" on public.profiles
@@ -62,7 +62,7 @@ $$;
 revoke all on function public.applicant_profiles(uuid[]) from public, anon;
 grant execute on function public.applicant_profiles(uuid[]) to authenticated;
 
--- Talabalar ro'yxati: email ham rozilikdan keyin ochiladi
+-- Student directory: email revealed only after consent
 drop function if exists public.student_directory();
 create or replace function public.student_directory()
 returns table (id uuid, email text, created_at timestamptz, contact_visible boolean)
@@ -87,7 +87,7 @@ revoke all on function public.student_directory() from public, anon;
 grant execute on function public.student_directory() to authenticated;
 
 -- -----------------------------------------------------------------------------
--- 3. Holat o'tishlari
+-- 3. Status transitions
 -- -----------------------------------------------------------------------------
 create or replace function public.applications_guard()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -172,7 +172,7 @@ end;
 $$;
 revoke all on function public.applications_guard() from public, anon, authenticated;
 
--- Talaba qabul taklifiga rozilik beradi (shartnoma e'lon qilingan bo'lsa — imzo shart)
+-- Student accepts an offer (signature required if an agreement is published)
 create or replace function public.accept_offer(p_application uuid)
 returns void language plpgsql security definer set search_path = public as $$
 declare
@@ -196,7 +196,7 @@ $$;
 revoke all on function public.accept_offer(uuid) from public, anon;
 grant execute on function public.accept_offer(uuid) to authenticated;
 
--- Nazorat ko'rinishi
+-- Monitoring view
 create or replace view public.application_flags
 with (security_invoker = true) as
 select
@@ -217,7 +217,7 @@ grant select on public.application_flags to authenticated;
 revoke all on public.application_flags from anon;
 
 -- -----------------------------------------------------------------------------
--- 4. Saytdagi xabar matnlari (yangi jarayonga moslab)
+-- 4. Site notification texts (new workflow)
 -- -----------------------------------------------------------------------------
 create or replace function public.notification_text(p_kind text, p_data jsonb, p_lang text)
 returns text language plpgsql immutable set search_path = public as $$
@@ -243,7 +243,7 @@ end;
 $$;
 
 -- -----------------------------------------------------------------------------
--- 5. SMS navbati (Eskiz orqali, unigoh.study/api/sms funksiyasi yuboradi)
+-- 5. SMS queue (sent by the unigoh.study/api/sms function via Eskiz)
 -- -----------------------------------------------------------------------------
 create table if not exists public.sms_outbox (
   id              bigint generated always as identity primary key,
@@ -270,7 +270,7 @@ create table if not exists private.sms_config (
 );
 alter table private.sms_config enable row level security;
 
--- O'zbekiston raqamini 998XXXXXXXXX ko'rinishiga keltirish
+-- Normalize Uzbek phone numbers to 998XXXXXXXXX
 create or replace function public.normalize_uz_phone(p text)
 returns text language sql immutable as $$
   select case
@@ -300,7 +300,7 @@ declare
 begin
   if new.status <> 'queued' then return new; end if;
   select * into cfg from private.sms_config where id;
-  if not found then return new; end if;   -- sozlanmagan: navbatda qoladi
+  if not found then return new; end if;   -- not configured: stays queued
   begin
     perform net.http_post(
       url := cfg.endpoint,
@@ -318,7 +318,7 @@ drop trigger if exists sms_deliver on public.sms_outbox;
 create trigger sms_deliver after insert on public.sms_outbox
   for each row execute function public.sms_deliver();
 
--- /api/sms natijani shu yerga qaytaradi
+-- /api/sms reports the result here
 create or replace function public.sms_report(p_secret text, p_id bigint, p_status text, p_provider_id text, p_error text)
 returns void language plpgsql security definer set search_path = public as $$
 declare
@@ -336,7 +336,7 @@ $$;
 revoke all on function public.sms_report(text, bigint, text, text, text) from public;
 grant execute on function public.sms_report(text, bigint, text, text, text) to anon, authenticated;
 
--- Navbatda qolganlarni qayta yuborish (sozlangandan keyin yoki xatodan so'ng) — faqat master
+-- Resend queued / failed messages (master only)
 create or replace function public.sms_retry(p_id bigint default null)
 returns integer language plpgsql security definer set search_path = public as $$
 declare
@@ -362,7 +362,7 @@ $$;
 revoke all on function public.sms_retry(bigint) from public, anon;
 grant execute on function public.sms_retry(bigint) to authenticated;
 
--- Sozlash: Supabase SQL Editor'dan bir marta (sir so'z Vercel'dagi SMS_SECRET bilan bir xil bo'lsin)
+-- Setup: run once from the SQL Editor (secret must match SMS_SECRET in Vercel)
 create or replace function private.sms_setup(p_secret text, p_endpoint text default 'https://unigoh.study/api/sms')
 returns text language plpgsql security definer set search_path = public as $$
 begin
@@ -375,7 +375,7 @@ $$;
 revoke all on function private.sms_setup(text, text) from public, anon, authenticated;
 
 -- -----------------------------------------------------------------------------
--- 6. Ariza o'zgarishlari → saytdagi xabar + SMS
+-- 6. Application changes -> site notification + SMS
 -- -----------------------------------------------------------------------------
 create or replace function public.applications_notify()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -398,7 +398,7 @@ begin
     insert into public.notifications (student_id, application_id, kind, data)
     values (new.student_id, new.id, 'status', base || jsonb_build_object('status', new.status));
 
-    -- Talabaga SMS: universitet javob berdi
+    -- SMS to student: the university responded
     if new.status in ('ADMITTED', 'REJECTED') then
       select phone, lang into p from public.profiles where id = new.student_id;
       ru := coalesce(p.lang, 'uz') = 'ru';
@@ -409,7 +409,7 @@ begin
         new.id);
     end if;
 
-    -- Universitetga SMS: talaba rozilik berdi va yuborildi
+    -- SMS to university: student consented and was forwarded
     if new.status = 'SENT' and old.status is distinct from 'SENT' then
       select contact_phone into t from public.university_terms where university_id = new.university_id;
       if t.contact_phone is not null then
@@ -435,7 +435,7 @@ $$;
 revoke all on function public.applications_notify() from public, anon, authenticated;
 
 -- -----------------------------------------------------------------------------
--- 7. Telegram o'chiriladi (SMS ishlatiladi)
+-- 7. Telegram removed (SMS is used instead)
 -- -----------------------------------------------------------------------------
 drop trigger if exists notifications_deliver on public.notifications;
 revoke all on function public.telegram_webhook(text, jsonb) from public, anon, authenticated;

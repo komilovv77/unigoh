@@ -77,7 +77,7 @@ export default function Profile({ session }) {
   }
 
   async function saveDocuments(next) {
-    // Profil hali saqlanmagan bo'lsa ham hujjat yuklash mumkin: qator avtomatik yaratiladi
+    // Documents can be uploaded before the first profile save: the row is created automatically
     const { error } = profileExists
       ? await supabase.from('profiles').update({ documents: next }).eq('id', session.user.id)
       : await supabase.from('profiles').upsert({ id: session.user.id, full_name: formData.full_name.trim(), phone: formData.phone.trim(), region: formData.region.trim(), school_name: formData.school_name.trim(), bio: formData.bio, certificates: legacyCerts, lang, documents: next, updated_at: new Date() });

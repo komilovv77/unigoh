@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Sun, Sunrise, Sunset, Moon } from 'lucide-react';
 import { useLang } from '../i18n';
 
-// O'zbekiston vaqti bo'yicha soat (foydalanuvchi qayerda bo'lishidan qat'i nazar)
+// Hour in Uzbekistan time, regardless of the user's location
 function tashkentHour() {
   const h = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Tashkent', hour: 'numeric', hourCycle: 'h23' }).format(new Date());
   return parseInt(h, 10);

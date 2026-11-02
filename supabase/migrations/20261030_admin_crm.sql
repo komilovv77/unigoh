@@ -1,30 +1,30 @@
 -- =============================================================================
--- UniGoh — Admin CRM, ariza jarayoni va komissiya tizimi
--- Supabase → SQL Editor ga to'liq tashlab, "Run" bosing.
--- Qayta ishga tushirish xavfsiz (idempotent): mavjud ma'lumotlar o'chmaydi.
+-- UniGoh: admin CRM, application workflow and commissions
+-- Paste into the Supabase SQL Editor and run.
+-- Idempotent: safe to re-run, existing data is kept.
 -- =============================================================================
 
 create extension if not exists "pgcrypto";
 
 -- -----------------------------------------------------------------------------
--- 1. UNIVERSITETLAR
+-- 1. UNIVERSITIES
 -- -----------------------------------------------------------------------------
 create table if not exists public.universities (
-  id               text primary key,                 -- masalan: 'isft-andijan'
-  code             text not null,                    -- masalan: 'ISFT'
+  id               text primary key,                 -- e.g. 'isft-andijan'
+  code             text not null,                    -- e.g. 'ISFT'
   name             text not null,
   region           text,
   commission_rate  numeric(4,2) not null default 4.00
-                   check (commission_rate >= 0 and commission_rate <= 100),  -- UniGoh ulushi, %
+                   check (commission_rate >= 0 and commission_rate <= 100),  -- commission, %
   is_active        boolean not null default true,
   programs         jsonb not null default '[]'::jsonb,  -- [{id,name,degree,duration,tuition}]
-  details          jsonb not null default '{}'::jsonb,  -- katalog uchun qo'shimcha ma'lumotlar
+  details          jsonb not null default '{}'::jsonb,  -- extra catalog data
   contact_name     text,
   contact_phone    text,
   created_at       timestamptz not null default now()
 );
 
--- Eski sxemadan qolgan jadval bo'lsa, yetishmayotgan ustunlarni qo'shamiz
+-- Add missing columns if the table exists from an older schema
 alter table public.universities add column if not exists commission_rate numeric(4,2) not null default 4.00;
 alter table public.universities add column if not exists is_active boolean not null default true;
 alter table public.universities add column if not exists programs jsonb not null default '[]'::jsonb;
@@ -33,9 +33,9 @@ alter table public.universities add column if not exists contact_name text;
 alter table public.universities add column if not exists contact_phone text;
 
 -- -----------------------------------------------------------------------------
--- 2. XODIMLAR (admin panelga kira oladiganlar)
---    role = 'master'           → siz: hamma narsani ko'radi va boshqaradi
---    role = 'university_admin' → faqat o'z universiteti arizalarini ko'radi
+-- 2. STAFF (admin panel users)
+--    role = 'master'           -> full access
+--    role = 'university_admin' -> own university only
 -- -----------------------------------------------------------------------------
 create table if not exists public.staff (
   user_id        uuid primary key references auth.users(id) on delete cascade,
@@ -47,7 +47,7 @@ create table if not exists public.staff (
 );
 
 -- -----------------------------------------------------------------------------
--- 3. ARIZALAR
+-- 3. APPLICATIONS
 -- -----------------------------------------------------------------------------
 create sequence if not exists public.application_code_seq start 1001;
 
@@ -60,25 +60,25 @@ create table if not exists public.applications (
   program_id             text,
   program_name           text,
   status                 text not null default 'NEW' check (status in (
-                           'NEW',          -- Yangi
-                           'DOCS_REVIEW',  -- Hujjatlar tekshiruvda
-                           'EXAM',         -- Imtihonga chaqirildi
-                           'ADMITTED',     -- Qabul qilindi
-                           'CONTRACT',     -- Shartnoma tuzildi
-                           'ENROLLED',     -- To'lov qildi, o'qishga kirdi → komissiya
-                           'REJECTED',     -- Rad etildi
-                           'WITHDRAWN'     -- Talaba voz kechdi
+                           'NEW',          -- new
+                           'DOCS_REVIEW',  -- under review
+                           'EXAM',         -- interview / exam
+                           'ADMITTED',     -- admitted
+                           'CONTRACT',     -- contract signed
+                           'ENROLLED',     -- paid and enrolled -> commission
+                           'REJECTED',     -- rejected
+                           'WITHDRAWN'     -- withdrawn by student
                          )),
   exam_date              timestamptz,
-  note                   text,                     -- OTM / admin izohi
-  contract_amount        bigint check (contract_amount is null or contract_amount >= 0),  -- 1-yil kontrakt, so'm
-  commission_rate        numeric(4,2),             -- ENROLLED paytidagi foiz (keyin o'zgarmaydi)
+  note                   text,                     -- university / admin note
+  contract_amount        bigint check (contract_amount is null or contract_amount >= 0),  -- first-year contract, UZS
+  commission_rate        numeric(4,2),             -- rate frozen at ENROLLED
   commission_amount      bigint generated always as
                            (round(coalesce(contract_amount, 0) * coalesce(commission_rate, 0) / 100.0)::bigint) stored,
   commission_status      text not null default 'none'
                          check (commission_status in ('none', 'pending', 'invoiced', 'paid')),
   commission_paid_at     timestamptz,
-  student_enrolled_claim boolean,                  -- talabaning o'zi "o'qishga kirdim" dedi
+  student_enrolled_claim boolean,                  -- student reported "I enrolled"
   student_claimed_at     timestamptz,
   created_at             timestamptz not null default now(),
   updated_at             timestamptz not null default now(),
@@ -89,7 +89,7 @@ create index if not exists applications_university_idx on public.applications (u
 create index if not exists applications_student_idx on public.applications (student_id);
 
 -- -----------------------------------------------------------------------------
--- 4. ARIZA TARIXI (har bir o'zgarish: kim, qachon, nima)
+-- 4. APPLICATION HISTORY (who changed what, when)
 -- -----------------------------------------------------------------------------
 create table if not exists public.application_events (
   id              bigint generated always as identity primary key,
@@ -105,7 +105,7 @@ create table if not exists public.application_events (
 create index if not exists application_events_app_idx on public.application_events (application_id, created_at);
 
 -- -----------------------------------------------------------------------------
--- 5. YORDAMCHI FUNKSIYALAR (RLS uchun)
+-- 5. HELPER FUNCTIONS (for RLS)
 -- -----------------------------------------------------------------------------
 create or replace function public.is_master()
 returns boolean language sql stable security definer set search_path = public as $$
@@ -123,7 +123,7 @@ returns text language sql stable security definer set search_path = public as $$
 $$;
 
 -- -----------------------------------------------------------------------------
--- 6. TRIGGERLAR: kim nimani o'zgartira olishini nazorat qilish + tarix
+-- 6. TRIGGERS: who may change what + history
 -- -----------------------------------------------------------------------------
 create or replace function public.applications_guard()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -131,7 +131,7 @@ declare
   r text := public.my_role();
 begin
   if tg_op = 'INSERT' then
-    -- Talaba faqat o'zi uchun, faqat "Yangi" holatda ariza ochadi
+    -- Students create applications only for themselves, only in NEW
     if r = 'student' then
       new.student_id := auth.uid();
       new.status := 'NEW';
@@ -145,7 +145,7 @@ begin
 
   -- UPDATE
   if r = 'student' then
-    -- Talaba faqat "o'qishga kirdim" tasdig'ini o'zgartira oladi yoki arizadan voz kechadi
+    -- Students may only toggle their enrollment claim or withdraw
     if new.student_enrolled_claim is distinct from old.student_enrolled_claim then
       new.student_claimed_at := now();
     end if;
@@ -163,7 +163,7 @@ begin
     new.commission_status := old.commission_status;
     new.commission_paid_at := old.commission_paid_at;
   elsif r = 'university_admin' then
-    -- OTM: holat, imtihon sanasi, izoh, kontrakt summasi. Komissiya va talaba tasdig'i — yo'q
+    -- University: status, exam date, note, contract amount. Not commission or student claim
     new.student_id := old.student_id;
     new.university_id := old.university_id;
     new.commission_rate := old.commission_rate;
@@ -173,7 +173,7 @@ begin
     new.student_claimed_at := old.student_claimed_at;
   end if;
 
-  -- ENROLLED bo'lganda: kontrakt summasi majburiy, foiz muzlatiladi, komissiya "kutilmoqda"
+  -- On ENROLLED: contract amount required, rate frozen, commission pending
   if new.status = 'ENROLLED' then
     if new.contract_amount is null or new.contract_amount = 0 then
       raise exception 'O''qishga kirdi holati uchun 1-yil kontrakt summasini kiriting';
@@ -237,7 +237,7 @@ create trigger applications_log
   for each row execute function public.applications_log();
 
 -- -----------------------------------------------------------------------------
--- 7. NAZORAT KO'RINISHI: talaba va OTM ma'lumotlari mos kelmasa
+-- 7. MONITORING VIEW: student and university data disagree
 -- -----------------------------------------------------------------------------
 create or replace view public.application_flags
 with (security_invoker = true) as
@@ -259,8 +259,8 @@ select
 from public.applications a;
 
 -- -----------------------------------------------------------------------------
--- 8. XODIM TAYINLASH (faqat master). Odam avval admin panelda ro'yxatdan o'tadi,
---    keyin siz uni email orqali OTM'ga biriktirasiz.
+-- 8. STAFF ASSIGNMENT (master only). The user signs up in the admin panel,
+--    then the master links the email to a university.
 -- -----------------------------------------------------------------------------
 create or replace function public.assign_staff(p_email text, p_role text, p_university text default null)
 returns void language plpgsql security definer set search_path = public as $$
@@ -272,7 +272,7 @@ begin
   end if;
   select id into uid from auth.users where lower(email) = lower(trim(p_email));
   if uid is null then
-    -- Hali ro'yxatdan o'tmagan: taklif saqlanadi, ro'yxatdan o'tishi bilan rol beriladi
+    -- Not registered yet: keep an invite, the role is granted on sign-up
     insert into public.staff_invites (email, role, university_id)
     values (lower(trim(p_email)), p_role, case when p_role = 'master' then null else p_university end)
     on conflict (email) do update set role = excluded.role, university_id = excluded.university_id;
@@ -299,7 +299,7 @@ begin
 end;
 $$;
 
--- Xodimlar ro'yxati email bilan (faqat master ko'radi)
+-- Staff list with emails (master only)
 create or replace function public.list_staff()
 returns table (user_id uuid, email text, role text, university_id text, full_name text, created_at timestamptz)
 language sql stable security definer set search_path = public as $$
@@ -318,7 +318,7 @@ alter table public.applications       enable row level security;
 alter table public.application_events enable row level security;
 alter table public.profiles           enable row level security;
 
--- Universitetlar: hamma faollarini ko'radi, faqat master o'zgartiradi
+-- Universities: everyone reads active ones, only master writes
 drop policy if exists "uni_read" on public.universities;
 create policy "uni_read" on public.universities
   for select using (is_active or public.is_master() or id = public.my_university());
@@ -326,7 +326,7 @@ drop policy if exists "uni_master_write" on public.universities;
 create policy "uni_master_write" on public.universities
   for all using (public.is_master()) with check (public.is_master());
 
--- Xodimlar: o'z yozuvini ko'radi; master hammasini
+-- Staff: own row; master sees all
 drop policy if exists "staff_read" on public.staff;
 create policy "staff_read" on public.staff
   for select using (user_id = auth.uid() or public.is_master());
@@ -334,7 +334,7 @@ drop policy if exists "staff_master_write" on public.staff;
 create policy "staff_master_write" on public.staff
   for all using (public.is_master()) with check (public.is_master());
 
--- Arizalar
+-- Applications
 drop policy if exists "app_student_read" on public.applications;
 create policy "app_student_read" on public.applications
   for select using (student_id = auth.uid());
@@ -357,7 +357,7 @@ drop policy if exists "app_master_all" on public.applications;
 create policy "app_master_all" on public.applications
   for all using (public.is_master()) with check (public.is_master());
 
--- Tarix: ko'ra oladigan arizasining tarixini ko'radi. Yozish faqat trigger orqali.
+-- History: readable for visible applications. Written only by triggers.
 drop policy if exists "events_read" on public.application_events;
 create policy "events_read" on public.application_events
   for select using (
@@ -368,7 +368,7 @@ create policy "events_read" on public.application_events
     )
   );
 
--- Profillar: talaba o'zinikini; OTM faqat o'ziga ariza bergan talabanikini; master hammasini
+-- Profiles: students their own; universities their applicants; master all
 drop policy if exists "profile_own_select" on public.profiles;
 create policy "profile_own_select" on public.profiles
   for select using (id = auth.uid());
@@ -394,8 +394,8 @@ grant execute on function public.remove_staff(uuid) to authenticated;
 grant execute on function public.list_staff() to authenticated;
 
 -- -----------------------------------------------------------------------------
--- 10. XODIM TAKLIFLARI: email oldindan yoziladi. Odam ro'yxatdan o'tishi bilan
---     (yoki allaqachon ro'yxatdan o'tgan bo'lsa — darhol) rol avtomatik beriladi.
+-- 10. STAFF INVITES: email entered in advance. The role is granted on sign-up
+--     (or immediately if the account already exists).
 -- -----------------------------------------------------------------------------
 create table if not exists public.staff_invites (
   email          text primary key,
@@ -429,7 +429,7 @@ create trigger on_auth_user_staff_invite
   after insert on auth.users
   for each row execute function public.apply_staff_invite();
 
--- Taklif qo'shilganda, odam allaqachon ro'yxatdan o'tgan bo'lsa — darhol biriktirish
+-- When an invite is added for an existing account, link it immediately
 create or replace function public.apply_invite_to_existing()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin

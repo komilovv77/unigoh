@@ -9,7 +9,7 @@ export const ACCEPT = '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png
 
 const sizeLabel = (b) => (b > 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 
-// Faylni yopiq omborga yuklaydi va {name, path, size, type} qaytaradi (yoki xato matni)
+// Uploads a file to private storage and returns {name, path, size, type} (or an error message)
 export async function uploadFile(userId, kind, file, t) {
   if (!TYPES.includes(file.type)) return { error: t('docs.typeError') };
   if (file.size > MAX) return { error: t('docs.sizeError') };
@@ -21,7 +21,7 @@ export async function uploadFile(userId, kind, file, t) {
 }
 
 export async function openFile(path, t) {
-  // Oynani darhol ochamiz (brauzer bloklamasligi uchun), keyin havolani beramiz
+  // Open the window immediately (avoids popup blocking), then set the URL
   const win = window.open('', '_blank');
   const { data, error } = await supabase.storage.from('documents').createSignedUrl(path, 300);
   if (error) { win?.close(); return t('docs.openError', { msg: error.message }); }
@@ -53,7 +53,7 @@ export function FileRow({ doc, onRemove, busy }) {
   );
 }
 
-// Bitta turdagi hujjatlar bloki: sarlavha, fayl tanlash, yuklangan fayllar ro'yxati
+// Block for one document type: title, file picker, uploaded files
 export function DocKind({ userId, kind, label, documents, onChange, extra, validateExtra, onUploaded }) {
   const { t } = useLang();
   const [busy, setBusy] = useState(false);

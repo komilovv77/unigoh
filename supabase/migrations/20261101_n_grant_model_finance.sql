@@ -1,12 +1,12 @@
 -- =============================================================================
--- n. Grant modeli (yakuniy) va moliya hisob-kitobi
---   * Universitet grantlari: shu universitetni 1-o'ringa qo'yganlar orasidagi eng kuchlilarga
---     ("chempionlar"). Har bir universitet o'z ichida bellashadi.
---   * UniGoh grantlari: qolgan barcha ishtirokchilar orasida umumiy reyting bo'yicha,
---     talabaning 1-tanlovidagi universitetda (cheklov yo'q — UniGoh to'laydi).
---   * Qolganlar: zaxira ro'yxati / kontrakt asosida qabul taklifi (1-tanlovdan boshlab).
---   * Ulush universitet haqiqatda oladigan puldan: universitet granti chegirmasi ayriladi,
---     UniGoh granti esa universitet daromadini kamaytirmaydi (uni UniGoh to'laydi).
+-- n. Grant model (final) and finance
+--   * University grants: per-university competition among students who ranked it first.
+--
+--   * UniGoh grants: overall ranking among the rest, at the student's 1st choice.
+--
+--   * Others: waitlist or contract offer (starting from the 1st choice).
+--   * Commission is based on the university's actual revenue.
+--
 -- =============================================================================
 
 create or replace function public.grant_allocate()
@@ -30,7 +30,7 @@ begin
    where g.season = s.season and g.fee_status <> 'unpaid' and not coalesce(r.excluded, false) and r.score is null;
   if missing > 0 then raise exception 'Hali % ta arizaga ball qo''yilmagan', missing; end if;
 
-  -- Avval hamma qarorlar tozalanadi
+  -- Reset all decisions first
   update public.grant_reviews r set decision = null, award_percent = null, award_university_id = null,
          award_program = null, funded_by = null, choice_rank = null, updated_at = now()
     from public.grant_applications g
@@ -50,7 +50,7 @@ begin
     join public.grant_reviews r on r.application_id = g.id
    where g.season = s.season and g.fee_status <> 'unpaid';
 
-  -- 1-bosqich: universitet grantlari — shu universitetni 1-o'ringa qo'yganlar orasida eng kuchlilarga
+  -- Phase 1: university grants to the strongest applicant who ranked that university first
   for slot in select * from _slots where university_id is not null order by university_id, percent desc, sid loop
     select * into a from _cand
      where not placed and not excluded and first_uni = slot.university_id
@@ -67,7 +67,7 @@ begin
     end if;
   end loop;
 
-  -- 2-bosqich: UniGoh grantlari — qolganlar orasida umumiy reyting bo'yicha, talabaning 1-tanlovida
+  -- Phase 2: UniGoh grants by overall ranking, at the student's 1st choice
   for slot in select * from _slots where university_id is null order by percent desc, sid loop
     select * into a from _cand
      where not placed and not excluded
@@ -83,7 +83,7 @@ begin
     won := won + 1;
   end loop;
 
-  -- 3-bosqich: zaxira ro'yxati va qolganlar (kontrakt asosida)
+  -- Phase 3: waitlist and the rest (contract offers)
   for a in select * from _cand where not placed order by excluded, score desc nulls last, dtm_score desc, created_at loop
     if not a.excluded and waits < s.waitlist_size then
       waits := waits + 1;
@@ -101,7 +101,7 @@ $$;
 revoke all on function public.grant_allocate() from public, anon;
 grant execute on function public.grant_allocate() to authenticated;
 
--- Moliya: ulush va UniGoh to'laydigan grant summasi
+-- Finance: commission and UniGoh grant payable
 create or replace view public.commission_ledger
 with (security_invoker = true) as
 select

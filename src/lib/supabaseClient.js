@@ -12,8 +12,8 @@ if (!isSupabaseConfigured) {
   )
 }
 
-// Kalitlar bo'lmasa ham sayt oq ekran bo'lib qolmasin: bosh sahifa ochiladi,
-// faqat kirish/ro'yxatdan o'tish xato xabarini ko'rsatadi.
+// Without keys the site must not white-screen: the landing page renders,
+// only sign-in / sign-up show an error.
 const notConfigured = async () => ({
   data: { session: null, user: null },
   error: { message: "Server sozlanmagan: Supabase kalitlari yo'q." },

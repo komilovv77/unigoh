@@ -1,12 +1,12 @@
 -- =============================================================================
--- k. UniGoh GRANT TANLOVI
---   Talaba: motivatsion xat + DTM ≥ 65 + 3 tagacha universitet (har biridan 1 yo'nalish).
---   Ariza to'lovi (application fee) — profilni ko'rib chiqish xizmati uchun.
---   Baholash va qarorlar faqat bosh adminlarda (universitet adminlari ko'rmaydi).
---   Natija hammaga bir vaqtda e'lon qilinadi: saytda "qabul xati" + SMS.
+-- k. Grant competition
+--   Application with a motivation letter, minimum exam score and up to 3 ranked choices.
+--   Review fee covers the application review.
+--   Reviews and decisions are visible to master admins only.
+--   Results are published to everyone at once (site letter + SMS).
 -- =============================================================================
 
--- 1. Sozlamalar (bitta qator)
+-- 1. Settings (single row)
 create table if not exists public.grant_settings (
   id                  boolean primary key default true check (id),
   season              integer not null default 2026,
@@ -25,7 +25,7 @@ drop policy if exists "grant_settings_master" on public.grant_settings;
 create policy "grant_settings_master" on public.grant_settings
   for all to authenticated using ((select public.is_master())) with check ((select public.is_master()));
 
--- 2. Arizalar (talaba o'zinikini ko'radi; qaror bu yerda emas)
+-- 2. Applications (students see their own; decisions live elsewhere)
 create sequence if not exists public.grant_code_seq start 1001;
 create table if not exists public.grant_applications (
   id            uuid primary key default gen_random_uuid(),
@@ -50,9 +50,9 @@ create policy "grant_app_own_read" on public.grant_applications
 drop policy if exists "grant_app_master" on public.grant_applications;
 create policy "grant_app_master" on public.grant_applications
   for all to authenticated using ((select public.is_master())) with check ((select public.is_master()));
--- Talaba to'g'ridan-to'g'ri yozmaydi — faqat grant_submit() orqali
+-- Students never write directly, only through grant_submit()
 
--- 3. Baholash va qaror — FAQAT bosh admin
+-- 3. Reviews and decisions (master only)
 create table if not exists public.grant_reviews (
   application_id  uuid primary key references public.grant_applications(id) on delete cascade,
   score           numeric check (score between 0 and 100),
@@ -61,7 +61,7 @@ create table if not exists public.grant_reviews (
   award_university_id text,
   award_program   text,
   funded_by       text check (funded_by in ('university', 'unigoh')),
-  note            text,                    -- ichki izoh, talabaga ko'rinmaydi
+  note            text,                    -- internal note, hidden from the student
   reviewed_by     uuid references auth.users(id) on delete set null,
   updated_at      timestamptz not null default now()
 );
@@ -70,7 +70,7 @@ drop policy if exists "grant_reviews_master" on public.grant_reviews;
 create policy "grant_reviews_master" on public.grant_reviews
   for all to authenticated using ((select public.is_master())) with check ((select public.is_master()));
 
--- 4. Talaba arizani topshiradi yoki (to'lovdan oldin) tahrirlaydi
+-- 4. Student submits or edits (before payment)
 create or replace function public.grant_submit(p_motivation text, p_choices jsonb)
 returns public.grant_applications
 language plpgsql security definer set search_path = public as $$
@@ -132,7 +132,7 @@ $$;
 revoke all on function public.grant_submit(text, jsonb) from public, anon;
 grant execute on function public.grant_submit(text, jsonb) to authenticated;
 
--- 5. Talaba o'z natijasini oladi — faqat e'lon qilingandan keyin
+-- 5. Student reads their result (only after publication)
 create or replace function public.my_grant()
 returns table (
   id uuid, code text, season integer, full_name text, dtm_score numeric, choices jsonb, motivation text,
@@ -155,7 +155,7 @@ $$;
 revoke all on function public.my_grant() from public, anon;
 grant execute on function public.my_grant() to authenticated;
 
--- 6. Bosh admin: to'lov holatini belgilash (Click/Payme ulanguncha qo'lda)
+-- 6. Master: set payment status (manual until a payment gateway is connected)
 create or replace function public.grant_set_fee(p_id uuid, p_status text)
 returns void language plpgsql security definer set search_path = public as $$
 declare g public.grant_applications;
@@ -174,7 +174,7 @@ $$;
 revoke all on function public.grant_set_fee(uuid, text) from public, anon;
 grant execute on function public.grant_set_fee(uuid, text) to authenticated;
 
--- 7. Natijalarni e'lon qilish: hammaga bir vaqtda sayt xabari + SMS
+-- 7. Publish results: site notification + SMS to everyone at once
 create or replace function public.grant_publish()
 returns integer language plpgsql security definer set search_path = public as $$
 declare

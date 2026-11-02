@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-// O'zbekcha (lotin) va ruscha matnlar. Yangi matn qo'shilsa, ikkala tilga ham qo'shing.
+// Uzbek (Latin) and Russian strings. Add every new key to both languages.
 const uz = {
   'nav.home': 'UniGoh bosh sahifa',
   'nav.login': 'Kirish',
@@ -438,7 +438,7 @@ function initialLang() {
   try {
     const saved = localStorage.getItem('unigoh_lang');
     if (saved === 'uz' || saved === 'ru') return saved;
-  } catch (_) { /* brauzer xotirasi yopiq */ }
+  } catch (_) { /* storage unavailable */ }
   const nav = (navigator.language || '').toLowerCase();
   return nav.startsWith('ru') ? 'ru' : 'uz';
 }
@@ -452,7 +452,7 @@ export function LangProvider({ children, onChange }) {
 
   const setLang = useCallback((l) => {
     setLangState(l);
-    try { localStorage.setItem('unigoh_lang', l); } catch (_) { /* e'tiborsiz */ }
+    try { localStorage.setItem('unigoh_lang', l); } catch (_) { /* ignore */ }
     onChange?.(l);
   }, [onChange]);
 
@@ -468,7 +468,7 @@ export function LangProvider({ children, onChange }) {
 
 export const useLang = () => useContext(LangContext);
 
-// Universitet ma'lumotlarida ruscha variant bo'lsa — o'shani, bo'lmasa o'zbekchasini
+// Use the Russian field when present, otherwise fall back to Uzbek
 export function loc(obj, field, lang) {
   if (!obj) return '';
   if (lang === 'ru' && obj[`${field}_ru`]) return obj[`${field}_ru`];
@@ -493,7 +493,7 @@ export function notificationText(n, t) {
   return t(`notif.${n.kind}`, vars);
 }
 
-// Yo'nalish darajasi va muddati: ruscha variant kiritilmagan bo'lsa, odatiy qiymatlarni tarjima qilamiz
+// Degree and duration: translate common values when no Russian variant is set
 const DEGREE_RU = { bakalavr: 'Бакалавриат', magistratura: 'Магистратура', magistr: 'Магистратура', doktorantura: 'Докторантура' };
 export function programMeta(p, lang) {
   let degree = loc(p, 'degree', lang);

@@ -1,9 +1,9 @@
 -- =============================================================================
--- UniGoh — Hujjatlarni fayl qilib yuklash (yopiq ombor)
--- Fayllar "documents" omborida: <talaba_id>/<fayl>. Ombor ochiq EMAS:
--- fayl faqat qisqa muddatli imzolangan havola orqali ochiladi.
--- Ko'radi: talabaning o'zi; u ariza bergan universitet xodimi; bosh administrator.
--- Qayta ishga tushirish xavfsiz.
+-- UniGoh: document uploads (private storage)
+-- Files live in the "documents" bucket as <student_id>/<file>. The bucket is NOT public:
+-- files open only through short-lived signed URLs.
+-- Readable by: the student; staff of universities they applied to; the master admin.
+-- Safe to re-run.
 -- =============================================================================
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -14,7 +14,7 @@ on conflict (id) do update
       file_size_limit = excluded.file_size_limit,
       allowed_mime_types = excluded.allowed_mime_types;
 
--- Profilda yuklangan hujjatlar ro'yxati: [{kind, name, path, size, type, uploaded_at}]
+-- Uploaded documents on the profile: [{kind, name, path, size, type, uploaded_at}]
 alter table public.profiles add column if not exists documents jsonb not null default '[]'::jsonb;
 
 drop policy if exists "docs_student_insert" on storage.objects;

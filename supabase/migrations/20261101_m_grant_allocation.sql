@@ -1,13 +1,13 @@
 -- =============================================================================
--- m. Grant taqsimoti va kafolatlangan kontrakt o'rni
---   * Talaba 3 ta universitetni xohish tartibida tanlaydi (1 → 2 → 3).
---   * Grantlar ball bo'yicha taqsimlanadi: eng kuchli talaba birinchi tanlaydi —
---     o'zining 1-tanlovidagi eng katta bo'sh grantni oladi; u yerda bo'sh grant
---     qolmasa, 2-tanlovga, keyin 3-tanlovga o'tadi.
---     Universitet grantlari (masalan 100%) faqat o'sha universitetda,
---     UniGoh grantlari (50%, 25%) istalgan hamkor universitetda ishlatiladi.
---   * Grant olmaganlar ham kontrakt asosida 1-tanlovga qabul taklifini oladi;
---     talaba voz kechsa yoki universitet rad etsa — 2-tanlovga, keyin 3-ga o'tadi.
+-- m. Grant allocation and offer cascade
+--   * Students rank up to 3 universities.
+--   * Grants are allocated by score and ranked choices.
+--     (Allocation rules were finalized in migration n.)
+--
+--     University-funded grants apply to that university only;
+--     UniGoh-funded grants apply to any partner university.
+--   * Non-winners receive a contract offer at their 1st choice;
+--     if declined or rejected, the offer moves to the next choice.
 -- =============================================================================
 
 alter table public.grant_settings add column if not exists pool jsonb not null default '[]'::jsonb;
@@ -29,7 +29,7 @@ alter table public.applications add column if not exists grant_funded_by text;
 alter table public.applications add column if not exists choice_rank integer;
 
 -- -----------------------------------------------------------------------------
--- 1. Guard: grant tizimi (ichki funksiyalar) talaba nomidan ariza yarata/yangilay oladi
+-- 1. Guard: internal grant functions may create/update applications on the student's behalf
 -- -----------------------------------------------------------------------------
 create or replace function public.applications_guard()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -62,7 +62,7 @@ begin
     return new;
   end if;
 
-  -- grant maydonlarini hech kim qo'lda o'zgartirmaydi (faqat tizim)
+  -- grant fields are system-managed only
   if r <> 'master' then
     new.source := old.source;
     new.grant_application_id := old.grant_application_id;
@@ -131,8 +131,8 @@ $$;
 revoke all on function public.applications_guard() from public, anon, authenticated;
 
 -- -----------------------------------------------------------------------------
--- 2. Xabarlar: grant tizimi yaratgan taklif uchun "ariza topshirildi" xabari yuborilmaydi
---    (talaba natijani grant xatida ko'radi)
+-- 2. Notifications: no "submitted" message for system-created offers
+--    (the student sees the result in the grant letter)
 -- -----------------------------------------------------------------------------
 create or replace function public.applications_notify()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -160,7 +160,7 @@ begin
       values (new.student_id, new.id, 'status', base || jsonb_build_object('status', new.status));
     end if;
 
-    -- Talabaga SMS: universitet javob berdi (grant tizimi o'zi alohida SMS yuboradi)
+    -- SMS to student: the university responded (the grant flow sends its own SMS)
     if new.status in ('ADMITTED', 'REJECTED') and not sys then
       select phone, lang into p from public.profiles where id = new.student_id;
       ru := coalesce(p.lang, 'uz') = 'ru';
@@ -171,7 +171,7 @@ begin
         new.id);
     end if;
 
-    -- Universitetga SMS: talaba rozilik berdi va yuborildi
+    -- SMS to university: student consented and was forwarded
     if new.status = 'SENT' and old.status is distinct from 'SENT' then
       select contact_phone into t from public.university_terms where university_id = new.university_id;
       if t.contact_phone is not null then
@@ -197,7 +197,7 @@ $$;
 revoke all on function public.applications_notify() from public, anon, authenticated;
 
 -- -----------------------------------------------------------------------------
--- 3. Avtomatik taqsimlash (bosh admin). Natijalar e'lon qilinguncha qayta-qayta ishlatish mumkin.
+-- 3. Automatic allocation (master). Can be re-run until results are published.
 -- -----------------------------------------------------------------------------
 create or replace function public.grant_allocate()
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -276,7 +276,7 @@ revoke all on function public.grant_allocate() from public, anon;
 grant execute on function public.grant_allocate() to authenticated;
 
 -- -----------------------------------------------------------------------------
--- 4. Taklif yaratish: talabaning N-tanloviga qabul (grant bo'lsa — grant bilan)
+-- 4. Create an offer at the student's N-th choice (with the grant, if any)
 -- -----------------------------------------------------------------------------
 create or replace function public.grant_make_offer(p_ga uuid, p_rank integer)
 returns uuid language plpgsql security definer set search_path = public as $$
@@ -324,7 +324,7 @@ $$;
 revoke all on function public.grant_make_offer(uuid, integer) from public, anon, authenticated;
 
 -- -----------------------------------------------------------------------------
--- 5. E'lon: xat + SMS + har bir ishtirokchiga qabul taklifi
+-- 5. Publish: letter + SMS + an admission offer for every participant
 -- -----------------------------------------------------------------------------
 create or replace function public.grant_publish()
 returns integer language plpgsql security definer set search_path = public as $$
@@ -358,7 +358,7 @@ begin
       left join public.profiles p on p.id = a.student_id
      where a.season = s.season and a.fee_status <> 'unpaid'
   loop
-    -- Qabul taklifi: g'olibga grant berilgan tanlovida, qolganlarga 1-tanlovida
+    -- Offer: winners at the awarded choice, everyone else at their 1st choice
     if not g.excluded then
       rnk := 1;
       if g.decision = 'ACCEPTED' then
@@ -384,7 +384,7 @@ revoke all on function public.grant_publish() from public, anon;
 grant execute on function public.grant_publish() to authenticated;
 
 -- -----------------------------------------------------------------------------
--- 6. Talaba: "keyingi tanlovimga o'tish"
+-- 6. Student: move to the next choice
 -- -----------------------------------------------------------------------------
 create or replace function public.grant_next_choice()
 returns uuid language plpgsql security definer set search_path = public as $$
@@ -413,7 +413,7 @@ revoke all on function public.grant_next_choice() from public, anon;
 grant execute on function public.grant_next_choice() to authenticated;
 
 -- -----------------------------------------------------------------------------
--- 7. Universitet grant yo'lidagi talabani rad etsa — avtomatik keyingi tanlov
+-- 7. University rejects a grant-track student -> next choice automatically
 -- -----------------------------------------------------------------------------
 create or replace function public.grant_cascade()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -438,7 +438,7 @@ create trigger applications_grant_cascade after update of status on public.appli
   for each row execute function public.grant_cascade();
 
 -- -----------------------------------------------------------------------------
--- 8. Talabaning grant ma'lumoti (taklif bilan)
+-- 8. Student's grant data (with the current offer)
 -- -----------------------------------------------------------------------------
 drop function if exists public.my_grant();
 create or replace function public.my_grant()

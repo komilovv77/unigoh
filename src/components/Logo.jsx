@@ -1,6 +1,6 @@
 import React from 'react';
 
-// UniGoh belgisi: darvoza (goh) + vodiy + chiqayotgan quyosh
+// UniGoh mark: gate (goh) + valley + rising sun
 export function LogoMark({ className = 'w-9 h-9' }) {
   return (
     <svg viewBox="0 0 140 140" className={className} aria-hidden="true">

@@ -1,13 +1,13 @@
 -- =============================================================================
--- j. UniGoh yuborgan talabani universitet "chetlab o'tishi"dan himoya
---   1) Pasport (shaxsni aniqlaydigan hujjat) talaba rozilik bergunga qadar
---      universitetga ko'rinmaydi — fayl ham, ro'yxatdagi yozuv ham.
---   2) Talaba istalgan holatda "shu universitetga o'qishga kirdim" deya oladi
---      (hatto universitet UniGoh'da rad etgan bo'lsa ham) va dalil yuklaydi.
---   3) Shubhali holatlar ogohlantirishlarda ko'rinadi.
+-- j. Referral protection
+--   1) The passport is hidden from the university until the student consents
+--      (both the file and its list entry).
+--   2) The student can report enrollment in any status
+--      and upload proof.
+--   3) Suspicious cases are flagged.
 -- =============================================================================
 
--- 1a. Profil: rozilikdan oldin pasport yozuvlari yashiriladi
+-- 1a. Profile: passport entries hidden before consent
 create or replace function public.applicant_profiles(p_ids uuid[])
 returns table (
   id uuid, full_name text, phone text, region text, bio text, school_name text,
@@ -40,7 +40,7 @@ $$;
 revoke all on function public.applicant_profiles(uuid[]) from public, anon;
 grant execute on function public.applicant_profiles(uuid[]) to authenticated;
 
--- 1b. Ombor: pasport faylini universitet faqat rozilikdan keyin ocha oladi
+-- 1b. Storage: passport file readable by the university only after consent
 drop policy if exists "docs_staff_select" on storage.objects;
 create policy "docs_staff_select" on storage.objects
   for select to authenticated
@@ -60,7 +60,7 @@ create policy "docs_staff_select" on storage.objects
     )
   );
 
--- 2. Talaba "o'qishga kirdim"ni istalgan holatda bildira oladi
+-- 2. Students can report enrollment in any status
 create or replace function public.applications_guard()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
@@ -140,7 +140,7 @@ end;
 $$;
 revoke all on function public.applications_guard() from public, anon, authenticated;
 
--- 3. Ogohlantirishlar: chetlab o'tish belgilari birinchi o'rinda
+-- 3. Flags: bypass signals first
 create or replace view public.application_flags
 with (security_invoker = true) as
 select

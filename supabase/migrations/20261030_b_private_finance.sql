@@ -1,11 +1,11 @@
 -- =============================================================================
--- UniGoh — Moliya ma'lumotlarini faqat bosh administratorga yopish
--- Ulush foizi, komissiya summasi va to'lov holati alohida jadvallarga ko'chadi.
--- Universitet xodimlari va talabalar bu jadvallarni umuman o'qiy olmaydi.
--- Qayta ishga tushirish xavfsiz.
+-- UniGoh: finance data visible to the master admin only
+-- Commission rate, amounts and payment status move to separate tables.
+-- University staff and students cannot read these tables at all.
+-- Safe to re-run.
 -- =============================================================================
 
--- 1. Universitet bilan kelishuv shartlari (faqat master)
+-- 1. University terms (master only)
 create table if not exists public.university_terms (
   university_id    text primary key references public.universities(id) on delete cascade,
   commission_rate  numeric(4,2) not null default 4.00 check (commission_rate >= 0 and commission_rate <= 100),
@@ -15,7 +15,7 @@ create table if not exists public.university_terms (
   updated_at       timestamptz not null default now()
 );
 
--- Eski ustunlardan ko'chirish (bo'lsa)
+-- Migrate from old columns (if present)
 do $$
 begin
   if exists (select 1 from information_schema.columns
@@ -29,7 +29,7 @@ end $$;
 insert into public.university_terms (university_id)
 select id from public.universities on conflict do nothing;
 
--- Yangi universitet qo'shilganda shartlar yozuvi avtomatik yaratiladi
+-- A terms row is created automatically for each new university
 create or replace function public.universities_terms_row()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
@@ -41,7 +41,7 @@ drop trigger if exists universities_terms_row on public.universities;
 create trigger universities_terms_row after insert on public.universities
   for each row execute function public.universities_terms_row();
 
--- 2. Har bir o'qishga kirgan talaba uchun komissiya (faqat master)
+-- 2. Commission per enrolled student (master only)
 create table if not exists public.application_commissions (
   application_id  uuid primary key references public.applications(id) on delete cascade,
   university_id   text not null references public.universities(id),
@@ -64,7 +64,7 @@ begin
   end if;
 end $$;
 
--- 3. Eski ochiq ustunlarni olib tashlash (endi boshqa jadvallarda)
+-- 3. Drop old public columns (now in separate tables)
 drop view if exists public.application_flags;
 alter table public.applications drop column if exists commission_amount;
 alter table public.applications drop column if exists commission_rate;
@@ -74,7 +74,7 @@ alter table public.universities drop column if exists commission_rate;
 alter table public.universities drop column if exists contact_name;
 alter table public.universities drop column if exists contact_phone;
 
--- 4. Moliya ko'rinishi: kontrakt summasi × foiz (faqat master ko'radi)
+-- 4. Finance view: contract amount x rate (master only)
 create or replace view public.commission_ledger
 with (security_invoker = true) as
 select
@@ -92,7 +92,7 @@ select
 from public.application_commissions c
 join public.applications a on a.id = c.application_id;
 
--- Nazorat ko'rinishi (qayta yaratish)
+-- Monitoring view (recreated)
 create or replace view public.application_flags
 with (security_invoker = true) as
 select
@@ -114,7 +114,7 @@ from public.applications a;
 grant select on public.application_flags to authenticated;
 grant select on public.commission_ledger to authenticated;
 
--- 5. Triggerlarni yangilash
+-- 5. Updated triggers
 create or replace function public.applications_guard()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
@@ -177,14 +177,14 @@ begin
     insert into public.application_events (application_id, actor_id, actor_role, kind, from_value, to_value, note)
     values (new.id, auth.uid(), r, 'status', old.status, new.status, new.note);
 
-    -- O'qishga kirdi → komissiya yozuvi (foiz shu paytda muzlatiladi)
+    -- Enrolled -> commission row (rate frozen at this moment)
     if new.status = 'ENROLLED' then
       insert into public.application_commissions (application_id, university_id, rate)
       select new.id, new.university_id, coalesce(t.commission_rate, 4.00)
       from (select 1) x left join public.university_terms t on t.university_id = new.university_id
       on conflict (application_id) do nothing;
     elsif old.status = 'ENROLLED' then
-      -- Xato bilan qo'yilgan bo'lsa: hali to'lanmagan komissiya bekor qilinadi
+      -- Set by mistake: an unpaid commission is cancelled
       delete from public.application_commissions where application_id = new.id and status = 'pending';
     end if;
   end if;
@@ -216,7 +216,7 @@ drop trigger if exists commissions_touch on public.application_commissions;
 create trigger commissions_touch before update on public.application_commissions
   for each row execute function public.commissions_touch();
 
--- 6. RLS: moliya jadvallari faqat master uchun
+-- 6. RLS: finance tables for master only
 alter table public.university_terms enable row level security;
 alter table public.application_commissions enable row level security;
 
@@ -228,7 +228,7 @@ drop policy if exists "commissions_master" on public.application_commissions;
 create policy "commissions_master" on public.application_commissions
   for all using (public.is_master()) with check (public.is_master());
 
--- Tarix: komissiya yozuvlarini faqat master ko'radi
+-- History: commission events visible to master only
 drop policy if exists "events_read" on public.application_events;
 create policy "events_read" on public.application_events
   for select using (
@@ -240,10 +240,10 @@ create policy "events_read" on public.application_events
     )
   );
 
--- Universitet xodimi o'z universiteti ma'lumotlarini (tavsif, yo'nalishlar) ko'radi;
--- tahrirlash faqat master (uni_master_write).
+-- University staff can read their own university (description, programs);
+-- only master can edit (uni_master_write).
 
--- 7. Talabalar ro'yxati email bilan (master: hammasi; OTM: faqat o'ziga ariza berganlar)
+-- 7. Student directory with emails (master: all; university: its applicants)
 create or replace function public.student_directory()
 returns table (id uuid, email text, created_at timestamptz)
 language sql stable security definer set search_path = public as $$

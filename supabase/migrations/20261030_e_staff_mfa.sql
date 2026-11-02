@@ -1,9 +1,9 @@
 -- =============================================================================
--- UniGoh — Xodimlar uchun ikki bosqichli kirish (MFA) majburiy
--- Xodim huquqlari (master yoki universitet admini) faqat ikkinchi bosqichdan
--- o'tgan sessiyada (aal2) ishlaydi. Parol o'g'irlansa ham kod bo'lmasa,
--- hech qanday talaba yoki moliya ma'lumoti ochilmaydi.
--- Qayta ishga tushirish xavfsiz.
+-- UniGoh: mandatory MFA for staff
+-- Staff privileges (master or university admin) apply only to sessions
+-- that passed the second factor (aal2). A stolen password alone
+-- exposes no student or finance data.
+-- Safe to re-run.
 -- =============================================================================
 
 create or replace function public.has_aal2()
@@ -23,7 +23,7 @@ returns text language sql stable security definer set search_path = public as $$
   where user_id = auth.uid() and role = 'university_admin' and public.has_aal2();
 $$;
 
--- Ikkinchi bosqichdan o'tmagan xodim tizim uchun oddiy foydalanuvchi hisoblanadi
+-- Staff without a second factor are treated as regular users
 create or replace function public.my_role()
 returns text language sql stable security definer set search_path = public as $$
   select case when public.has_aal2()
@@ -31,7 +31,7 @@ returns text language sql stable security definer set search_path = public as $$
               else 'student' end;
 $$;
 
--- Telefonini yo'qotgan xodimning ikki bosqichli himoyasini qayta o'rnatish (faqat master)
+-- Reset MFA for a staff member who lost their phone (master only)
 create or replace function public.reset_staff_mfa(p_user uuid)
 returns void language plpgsql security definer set search_path = public as $$
 begin

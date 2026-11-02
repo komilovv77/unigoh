@@ -65,7 +65,7 @@ export default function MyApplications({ session, agreement, onBrowse, onChanged
   }
 
   function accept(app) {
-    // Shartnoma e'lon qilingan va hali imzolanmagan bo'lsa — avval imzo; aks holda oddiy rozilik
+    // If an agreement is published and unsigned, sign first; otherwise a simple consent
     if (agreement.required) { setSignFor(app); return; }
     const uniName = unis[app.university_id]?.name || '';
     if (!window.confirm(t('apps.acceptConfirm', { uni: uniName }))) return;
@@ -92,7 +92,7 @@ export default function MyApplications({ session, agreement, onBrowse, onChanged
         const withdrawn = a.status === 'WITHDRAWN';
         const admitted = a.status === 'ADMITTED';
         const canClaim = ['SENT', 'CONTRACT', 'ENROLLED'].includes(a.status) && !a.student_enrolled_claim;
-        // Universitet UniGoh'da rad etgan yoki javob bermagan bo'lsa ham, talaba o'qishga kirganini bildira oladi
+        // Students can report enrollment even if the university rejected or ignored them on UniGoh
         const canLateClaim = !canClaim && !a.student_enrolled_claim && a.status !== 'ENROLLED';
         const canWithdraw = ['NEW', 'DOCS_REVIEW', 'EXAM'].includes(a.status);
 

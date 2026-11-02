@@ -1,4 +1,4 @@
-// Grant bo'limi matnlari (UZ/RU)
+// Grant section copy (UZ/RU)
 export const G = {
   uz: {
     title: 'UniGoh granti',

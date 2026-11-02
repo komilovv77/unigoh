@@ -1,9 +1,9 @@
-// SMS yuborish (Eskiz.uz). Supabase (sms_outbox) → shu funksiya → Eskiz → natija Supabase'ga qaytadi.
+// SMS sender (Eskiz.uz): Supabase (sms_outbox) -> this function -> Eskiz -> status reported back to Supabase.
 //
-// Vercel → Settings → Environment Variables:
-//   ESKIZ_EMAIL, ESKIZ_PASSWORD  — Eskiz kabinetidagi login
-//   ESKIZ_FROM                   — jo'natuvchi nomi (Eskiz bergan; standart: 4546)
-//   SMS_SECRET                   — Supabase'dagi private.sms_setup(...) ga berilgan sir so'z bilan bir xil
+// Vercel -> Settings -> Environment Variables:
+//   ESKIZ_EMAIL, ESKIZ_PASSWORD  - Eskiz account login
+//   ESKIZ_FROM                   - sender name (default: 4546)
+//   SMS_SECRET                   - must match the secret passed to private.sms_setup(...)
 const ESKIZ = 'https://notify.eskiz.uz/api'
 let token = null
 

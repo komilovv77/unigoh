@@ -3,7 +3,7 @@ import { FileSignature, X, Printer, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useLang, formatDate } from '../i18n';
 
-// Faol shartnoma shabloni va talabaning shu versiyaga qo'ygan imzosi
+// Active agreement template and the student's signature for that version
 export function useAgreement(userId) {
   const [template, setTemplate] = useState(null);
   const [signed, setSigned] = useState(null);
@@ -25,7 +25,7 @@ export function useAgreement(userId) {
 
   useEffect(() => { load(); }, [load]);
 
-  // Shablon e'lon qilinmagan bo'lsa, imzo talab qilinmaydi
+  // No signature is required while no template is published
   const required = !!template && !signed;
   return { template, signed, required, loading, reload: load };
 }
@@ -180,7 +180,7 @@ export function AgreementModal({ template, onClose, onSigned, userId, defaultNam
   );
 }
 
-// Imzolangan shartnomani chop etish / PDF saqlash uchun alohida oynada ochadi
+// Opens the signed agreement in a new window for printing / saving as PDF
 export async function printAgreement(template, signed, lang, t) {
   const w = window.open('', '_blank');
   if (!w) return;
@@ -199,10 +199,10 @@ export async function printAgreement(template, signed, lang, t) {
 <div><b>${esc(t('agr.signedAt'))}:</b> ${esc(formatDate(signed.signed_at, docLang))}</div>
 ${data?.signedUrl ? `<img src="${esc(data.signedUrl)}" alt="">` : ''}</div></body></html>`);
   w.document.close();
-  setTimeout(() => { try { w.focus(); w.print(); } catch (_) { /* foydalanuvchi o'zi chop etadi */ } }, 600);
+  setTimeout(() => { try { w.focus(); w.print(); } catch (_) { /* user can print manually */ } }, 600);
 }
 
-// "Arizalarim" tepasidagi qisqa holat kartasi
+// Short status card shown above "My applications"
 export function AgreementStatus({ agreement }) {
   const { t, lang } = useLang();
   const { template, signed } = agreement;
