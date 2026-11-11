@@ -1,11 +1,13 @@
-# Supabase pauses free projects after 7 days of inactivity.
-# This job sends a trivial query twice a week to keep the project active.
-# Uses the publishable key, which is already public in the site bundle.
+# Supabase pauses free projects that show too little activity for 7 days.
+# This job runs every day and makes several real database reads so the
+# project always registers activity. Uses the publishable key, which is
+# already public in the site bundle.
 name: Supabase keep-alive
 
 on:
   schedule:
-    - cron: "17 6 * * 1,4"   # dushanba va payshanba, 11:17 Toshkent vaqti
+    - cron: "17 6 * * *"     # every day, 11:17 Tashkent time
+    - cron: "47 17 * * *"    # and again at 22:47 Tashkent time
   workflow_dispatch:
 
 jobs:
@@ -18,8 +20,16 @@ jobs:
           SUPABASE_URL: https://hchynrszmfhaoawqggny.supabase.co
           SUPABASE_KEY: sb_publishable_tcxiTqyYPD5whU4iavwoTA_5P6O9_Fi
         run: |
-          code=$(curl -s -o /tmp/out.json -w "%{http_code}" \
-            "$SUPABASE_URL/rest/v1/universities?select=id&limit=1" \
-            -H "apikey: $SUPABASE_KEY")
-          echo "HTTP $code"; cat /tmp/out.json; echo
-          test "$code" = "200"
+          fail=0
+          for path in \
+            "rest/v1/universities?select=id,name,programs&limit=50" \
+            "rest/v1/grant_settings?select=*" \
+            "rest/v1/universities?select=count" \
+            "auth/v1/settings"; do
+            code=$(curl -s -o /tmp/out.json -w "%{http_code}" "$SUPABASE_URL/$path" \
+              -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY")
+            echo "$path -> HTTP $code"
+            [ "$code" = "200" ] || fail=1
+            sleep 2
+          done
+          exit $fail
